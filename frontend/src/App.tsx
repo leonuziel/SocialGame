@@ -26,6 +26,8 @@ const App: React.FC = () => {
         return <RoomView roomId={roomId} roomRole={roomRole} onLeave={handleLeaveRoom} onGameStart={handleGameStart} />;
       case GameState.Game:
         return <GameView roomId={roomId} roomRole={roomRole} gameType={gameType} />;
+      default:
+        throw new Error('unrecognized game state');
     }
   }
 
