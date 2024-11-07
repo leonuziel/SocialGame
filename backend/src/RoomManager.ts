@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 
+
 class RoomManager {
     private static instance: RoomManager;
     private roomIdToPlayerList: Map<string, string[]> = new Map<string, string[]>();
@@ -17,27 +18,33 @@ class RoomManager {
         io.on('connection', (socket) => {
             console.log('A user connected:', socket.id);
 
-            socket.on('joinRoom', (room: string) => this.handleJoinRoom(socket, room));
+            socket.on('joinRoom', (room: string, onJoinCallback: (success: boolean, room: string, players: string[], role: 'Admin' | 'Member', message: string) => void) => {
+                this.handleJoinRoom(socket, room, onJoinCallback);
+            });
             socket.on('leaveRoom', (room: string) => this.handleLeaveRoom(socket, room));
             socket.on('kickPlayer', ({ roomId, player }: { roomId: string; player: string }) =>
                 this.handleKickPlayer(socket, roomId, player)
             );
-            socket.on('startGame', (roomId: string) => this.handleStartGame(socket, roomId));
-
+            socket.on('startGame', (roomId: string, onStartCallback: (success: boolean, gameType: string, players: string[], extraInfo: unknown) => void) => {
+                this.handleStartGame(socket, roomId, onStartCallback);
+            });
             socket.on('disconnect', () => {
                 console.log('User disconnected:', socket.id);
             });
         });
     }
 
-    private handleJoinRoom(socket: Socket, room: string) {
+    private handleJoinRoom(socket: Socket, room: string, onJoinCallback: (success: boolean, room: string, players: string[], role: 'Admin' | 'Member', message: string) => void) {
         const canJoinRoom = room.length > 3;
         if (canJoinRoom) {
             socket.join(room);
             console.log(`User ${socket.id} joined room: ${room}`);
-            socket.emit('joinedRoom', { success: true, room, role: 'Admin', message: `Joined room: ${room}` });
             this.addPlayerToRoom(room, socket.id);
             this.updateRoomPlayersList(socket, room);
+            const players = this.getPlayersInRoom(room);
+            onJoinCallback(true, room, players, 'Admin', `Joined room: ${room}`);
+        } else {
+            onJoinCallback(false, room, [], "Member", `Failed To Join`);
         }
     }
 
@@ -54,9 +61,13 @@ class RoomManager {
         }
     }
 
-    private handleStartGame(socket: Socket, roomId: string) {
+    private handleStartGame(socket: Socket, roomId: string, onStartCallback: (success: boolean, gameType: string, players: string[], extraInfo: unknown) => void) {
         if (this.isAdmin(socket, roomId)) {
-            socket.to(roomId).emit('gameStarted', { type: 'test', players: this.getPlayersInRoom(roomId), extraInfo: {} });
+            const players = this.getPlayersInRoom(roomId);
+            onStartCallback(true, 'test', players, {});
+            socket.to(roomId).emit('gameStarted', { type: 'test', players, extraInfo: {} });
+        } else {
+            onStartCallback(false, '', [], {});
         }
     }
 
@@ -67,8 +78,8 @@ class RoomManager {
         this.roomIdToPlayerList.get(room)!.push(playerId);
     }
 
-    private getPlayersInRoom(room: string): string[] | undefined {
-        return this.roomIdToPlayerList.get(room);
+    private getPlayersInRoom(room: string): string[] {
+        return this.roomIdToPlayerList.get(room) || [];
     }
 
     private updateRoomPlayersList(socket: Socket, room: string) {

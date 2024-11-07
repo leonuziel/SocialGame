@@ -2,7 +2,7 @@ import React from 'react';
 import JoinRoom from '../Rooms/JoinRoom';
 import logo from '../logo.svg';
 
-const LobbyView: React.FC<{ onJoin: (roomId: string,role:string) => void }> = ({ onJoin }) => {
+const LobbyView: React.FC<{ onJoin: (roomId: string, role: string, players: string[]) => void }> = ({ onJoin }) => {
   return (
     <div>
       <img src={logo} className="App-logo" alt="logo" />

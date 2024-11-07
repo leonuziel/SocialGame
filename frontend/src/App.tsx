@@ -6,16 +6,20 @@ import GameView from './Views/GameView';
 
 enum GameState { Lobby, Room, Game }
 
+interface roomData {
+  id: string
+  gameType: string
+  roleInRoom: string
+  players: string[]
+}
+
 const App: React.FC = () => {
   const [state, setState] = useState<GameState>(GameState.Lobby);
-  const [roomId, setRoomId] = useState<string>('');
-  const [roomRole, setRoomRole] = useState<string>('');
-  const [gameType, setGameType] = useState<string>('');
+  const [roomData, setRoomData] = useState<roomData>({ id: '', gameType: '', roleInRoom: '', players: [] });
 
-  const onRoomJoin: (roomId: string, role: string) => void = (roomId, role) => {
+  const onRoomJoin: (roomId: string, role: string, players: string[]) => void = (roomId, role, players) => {
     setState(GameState.Room);
-    setRoomRole(role);
-    setRoomId(roomId);
+    setRoomData({ id: roomId, gameType: "", roleInRoom: role, players: players })
   }
 
   const renderView = () => {
@@ -23,9 +27,9 @@ const App: React.FC = () => {
       case GameState.Lobby:
         return <LobbyView onJoin={onRoomJoin} />;
       case GameState.Room:
-        return <RoomView roomId={roomId} roomRole={roomRole} onLeave={handleLeaveRoom} onGameStart={handleGameStart} />;
+        return <RoomView roomId={roomData.id} initialPlayers={roomData.players} roomRole={roomData.roleInRoom} onLeave={handleLeaveRoom} onGameStart={handleGameStart} />;
       case GameState.Game:
-        return <GameView roomId={roomId} roomRole={roomRole} gameType={gameType} />;
+        return <GameView roomId={roomData.id} roomRole={roomData.roleInRoom} gameType={roomData.gameType} />;
       default:
         throw new Error('unrecognized game state');
     }
@@ -33,12 +37,14 @@ const App: React.FC = () => {
 
   const handleLeaveRoom = () => {
     setState(GameState.Lobby);
-    setRoomRole('');
-    setRoomId('');
+    setRoomData({ id: '', gameType: '', roleInRoom: '', players: [] });
   }
 
+
   const handleGameStart = (type: string, players: string[], extraInfo: unknown) => {
-    setGameType(type);
+    setRoomData((oldData) => {
+      return { ...oldData, gameType: type, players: players };
+    });
     setState(GameState.Game);
   }
 

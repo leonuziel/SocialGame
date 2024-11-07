@@ -4,12 +4,13 @@ import socket from '../api/socket';
 interface RoomViewProps {
     roomId: string;
     roomRole: string;
+    initialPlayers: string[]
     onLeave: () => void;
     onGameStart: (type: string, players: string[], extraInfo: unknown) => void;
 }
 
-const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, onLeave, onGameStart }) => {
-    const [playersList, setPlayersList] = useState<string[]>([]);
+const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, onLeave, onGameStart }) => {
+    const [playersList, setPlayersList] = useState<string[]>(initialPlayers);
     const [selectedPlayer, setSelectedPlayer] = useState<string>('');
 
     useEffect(() => {
@@ -31,6 +32,8 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, onLeave, onGameSt
         // Cleanup listener on component unmount
         return () => {
             socket.off('playerListUpdated');
+            socket.off('gameStarted');
+            socket.off('kicked');
         };
     }, []);
 
@@ -42,7 +45,12 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, onLeave, onGameSt
 
     const handleStartGame = () => {
         if (roomId) {
-            socket.emit('startGame', roomId);
+            socket.emit('startGame', roomId, (success: boolean, gameType: string, players: string[], extraInfo: unknown) => {
+                console.log("pressed start game");
+                console.log(`roomId - ${roomId}, status - ${success}, type - ${gameType}`)
+                if (success)
+                    onGameStart(gameType, players, extraInfo);
+            });
         }
     };
 
