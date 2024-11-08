@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import socket from '../api/socket';
+import { GameType } from '../../../backend/src/Games/GameUtils';
 
 interface RoomViewProps {
     roomId: string;
     roomRole: string;
     initialPlayers: string[]
     onLeave: () => void;
-    onGameStart: (type: string, players: string[], extraInfo: unknown) => void;
+    onGameStart: (type: GameType, players: string[], extraInfo: unknown) => void;
 }
 
 const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, onLeave, onGameStart }) => {
@@ -19,7 +20,7 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, o
             setPlayersList(players);
         });
 
-        socket.on('gameStarted', ({ type, players, extraInfo }: { type: string, players: string[], extraInfo: unknown }) => {
+        socket.on('gameStarted', ({ type, players, extraInfo }: { type: GameType, players: string[], extraInfo: unknown }) => {
             onGameStart(type, players, extraInfo);
         });
 
@@ -45,7 +46,7 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, o
 
     const handleStartGame = () => {
         if (roomId) {
-            socket.emit('startGame', roomId, (success: boolean, gameType: string, players: string[], extraInfo: unknown) => {
+            socket.emit('startGame', roomId, (success: boolean, gameType: GameType, players: string[], extraInfo: unknown) => {
                 console.log("pressed start game");
                 console.log(`roomId - ${roomId}, status - ${success}, type - ${gameType}`)
                 if (success)

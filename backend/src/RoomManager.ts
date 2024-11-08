@@ -1,9 +1,11 @@
 import { Server, Socket } from 'socket.io';
+import { Game, TriviaGame } from './Games/GameUtils';
 
 
 class RoomManager {
     private static instance: RoomManager;
     private roomIdToPlayerList: Map<string, string[]> = new Map<string, string[]>();
+    private roomIdToGame: Map<string, Game> = new Map<string, Game>();
 
     private constructor() { }
 
@@ -35,11 +37,11 @@ class RoomManager {
     }
 
     private handleJoinRoom(socket: Socket, room: string, onJoinCallback: (success: boolean, room: string, players: string[], role: 'Admin' | 'Member', message: string) => void) {
-        const canJoinRoom = room.length > 3;
+        const canJoinRoom = room.length > 3; // TODO fix this
         if (canJoinRoom) {
             socket.join(room);
             console.log(`User ${socket.id} joined room: ${room}`);
-            this.addPlayerToRoom(room, socket.id);
+            this.addPlayerToRoom(room, socket);
             this.updateRoomPlayersList(socket, room);
             const players = this.getPlayersInRoom(room);
             onJoinCallback(true, room, players, 'Admin', `Joined room: ${room}`);
@@ -64,18 +66,22 @@ class RoomManager {
     private handleStartGame(socket: Socket, roomId: string, onStartCallback: (success: boolean, gameType: string, players: string[], extraInfo: unknown) => void) {
         if (this.isAdmin(socket, roomId)) {
             const players = this.getPlayersInRoom(roomId);
-            onStartCallback(true, 'test', players, {});
-            socket.to(roomId).emit('gameStarted', { type: 'test', players, extraInfo: {} });
+            const game: Game = new TriviaGame(players);
+            this.roomIdToGame.set(roomId, game);
+
+
+            onStartCallback(true, game.getGameType(), players, {});
+            socket.to(roomId).emit('gameStarted', { type: game.getGameType(), players, extraInfo: {} });
         } else {
             onStartCallback(false, '', [], {});
         }
     }
 
-    private addPlayerToRoom(room: string, playerId: string) {
+    private addPlayerToRoom(room: string, playerSocket: Socket) {
         if (!this.roomIdToPlayerList.has(room)) {
             this.roomIdToPlayerList.set(room, []);
         }
-        this.roomIdToPlayerList.get(room)!.push(playerId);
+        this.roomIdToPlayerList.get(room)!.push(playerSocket.id);
     }
 
     private getPlayersInRoom(room: string): string[] {
@@ -87,14 +93,12 @@ class RoomManager {
     }
 
     private removePlayer(socket: Socket, room: string) {
-        socket.leave(room);
-        const filteredList = this.roomIdToPlayerList.get(room)?.filter((id) => id !== socket.id) || [];
-        this.roomIdToPlayerList.set(room, filteredList);
+        this.removePlayerById(room, socket.id, socket);
     }
 
     private removePlayerById(room: string, playerId: string, socket: Socket) {
         socket.leave(room);
-        const filteredList = this.roomIdToPlayerList.get(room)?.filter((id) => id !== playerId) || [];
+        const filteredList = this.roomIdToPlayerList.get(room)?.filter((socketId) => socketId !== playerId) || [];
         this.roomIdToPlayerList.set(room, filteredList);
     }
 

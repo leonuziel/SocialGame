@@ -1,11 +1,12 @@
 import React from 'react';
 import JoinRoom from '../Rooms/JoinRoom';
 import logo from '../logo.svg';
+import { GameType } from '../../../backend/src/Games/GameUtils';
 
 interface GameViewProps {
   roomId: string;
   roomRole: string;
-  gameType: string
+  gameType: GameType;
   onLeave?: () => void;
 }
 const GameView: React.FC<GameViewProps> = ({ roomId, roomRole, gameType }) => {

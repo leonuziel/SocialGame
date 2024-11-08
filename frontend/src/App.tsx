@@ -3,23 +3,24 @@ import './App.css';
 import LobbyView from './Views/LobbyView';
 import RoomView from './Views/RoomView';
 import GameView from './Views/GameView';
+import { GameType } from '../../backend/src/Games/GameUtils';
 
 enum GameState { Lobby, Room, Game }
 
 interface roomData {
   id: string
-  gameType: string
+  gameType: GameType
   roleInRoom: string
   players: string[]
 }
 
 const App: React.FC = () => {
   const [state, setState] = useState<GameState>(GameState.Lobby);
-  const [roomData, setRoomData] = useState<roomData>({ id: '', gameType: '', roleInRoom: '', players: [] });
+  const [roomData, setRoomData] = useState<roomData>({ id: '', gameType: GameType.None, roleInRoom: '', players: [] });
 
   const onRoomJoin: (roomId: string, role: string, players: string[]) => void = (roomId, role, players) => {
     setState(GameState.Room);
-    setRoomData({ id: roomId, gameType: "", roleInRoom: role, players: players })
+    setRoomData({ id: roomId, gameType: GameType.None, roleInRoom: role, players: players })
   }
 
   const renderView = () => {
@@ -37,11 +38,11 @@ const App: React.FC = () => {
 
   const handleLeaveRoom = () => {
     setState(GameState.Lobby);
-    setRoomData({ id: '', gameType: '', roleInRoom: '', players: [] });
+    setRoomData({ id: '', gameType: GameType.None, roleInRoom: '', players: [] });
   }
 
 
-  const handleGameStart = (type: string, players: string[], extraInfo: unknown) => {
+  const handleGameStart = (type: GameType, players: string[], extraInfo: unknown) => {
     setRoomData((oldData) => {
       return { ...oldData, gameType: type, players: players };
     });
