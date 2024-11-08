@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import socket from '../api/socket';
-import { GameType } from '../../../backend/src/Games/GameUtils';
+import { GameType } from '../utils';
 
 interface RoomViewProps {
     roomId: string;

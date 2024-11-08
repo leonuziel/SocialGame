@@ -3,7 +3,7 @@ import './App.css';
 import LobbyView from './Views/LobbyView';
 import RoomView from './Views/RoomView';
 import GameView from './Views/GameView';
-import { GameType } from '../../backend/src/Games/GameUtils';
+import { GameType } from './utils';
 
 enum GameState { Lobby, Room, Game }
 

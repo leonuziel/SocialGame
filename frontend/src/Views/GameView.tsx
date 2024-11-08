@@ -1,7 +1,7 @@
 import React from 'react';
-import JoinRoom from '../Rooms/JoinRoom';
 import logo from '../logo.svg';
-import { GameType } from '../../../backend/src/Games/GameUtils';
+import { GameType } from '../utils';
+import TriviaGame from '../Games/Trivia';
 
 interface GameViewProps {
   roomId: string;
@@ -12,11 +12,11 @@ interface GameViewProps {
 const GameView: React.FC<GameViewProps> = ({ roomId, roomRole, gameType }) => {
   return (
     <div>
-      <img src={logo} className="App-logo" alt="logo" />
-      <h1>Welcome to the Game {gameType} App</h1>
+x      <h1>Welcome to the Game {gameType} App</h1>
       <h2>You are {roomRole} in this game</h2>
       <h3>Enjoy</h3>
       <p>id:{roomId}</p>
+      <TriviaGame roomId={roomId} roomRole={roomRole} />
     </div>
   );
 };
