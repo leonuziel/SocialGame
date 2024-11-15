@@ -1,0 +1,129 @@
+/* RoomView.css */
+.lobby {
+  overflow-y: auto;
+  /* Allow scrolling if content exceeds viewport height */
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 20px;
+  height: 100vh;
+  /* Use the full height of the viewport */
+  box-sizing: border-box;
+  overflow-y: hidden;
+  /* Prevent scrolling on the overall container */
+}
+
+.game-details,
+.players-list,
+.admin-controls {
+  width: 100%;
+  max-width: 800px;
+  margin: 10px 0;
+  text-align: center;
+  overflow: hidden;
+  /* Prevent content overflow */
+}
+
+.players-list {
+  flex: 1;
+  max-height: 25%;
+  /* Adjust the height to ensure space for other elements */
+  overflow-y: auto;
+  /* Make the player list scrollable if needed */
+}
+
+.players-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.players-list li {
+  margin: 5px 0;
+  font-size: 1em;
+  word-wrap: break-word;
+}
+
+.ready-button,
+.leave-button,
+.admin-button {
+  padding: 10px 20px;
+  font-size: 1em;
+  margin: 10px 5px;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+  transition: background-color 0.3s;
+}
+
+.ready-button {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.ready-button:hover {
+  background-color: #45a049;
+}
+
+.leave-button {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.leave-button:hover {
+  background-color: #c0392b;
+}
+
+.admin-controls {
+  border-top: 1px solid #ccc;
+  padding-top: 15px;
+  margin-top: 10px;
+  flex-shrink: 0;
+  /* Prevent shrinking */
+  max-height: 40%;
+  /* Ensure admin controls don't exceed the allocated space */
+  overflow-y: auto;
+  /* Make admin controls scrollable if needed */
+}
+
+.admin-button {
+  background-color: #f39c12;
+  color: white;
+}
+
+.admin-button:hover {
+  background-color: #e67e22;
+}
+
+.kick-player {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
+  max-width: 100%;
+}
+
+.kick-player select {
+  padding: 8px;
+  margin-right: 5px;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+
+  .ready-button,
+  .leave-button,
+  .admin-button {
+    font-size: 0.9em;
+    padding: 8px 16px;
+  }
+
+  .game-details,
+  .players-list,
+  .admin-controls {
+    width: 90%;
+  }
+}

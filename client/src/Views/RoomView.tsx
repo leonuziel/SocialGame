@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import socket from '../api/socket';
 import { GameType } from '../utils';
+import './RoomView.css';
 
 interface RoomViewProps {
     roomId: string;
     roomRole: string;
-    initialPlayers: string[]
+    initialPlayers: string[];
     onLeave: () => void;
     onGameStart: (type: GameType, players: string[], extraInfo: unknown) => void;
 }
@@ -13,9 +14,22 @@ interface RoomViewProps {
 const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, onLeave, onGameStart }) => {
     const [playersList, setPlayersList] = useState<string[]>(initialPlayers);
     const [selectedPlayer, setSelectedPlayer] = useState<string>('');
+    const [windowHeight, setWindowHeight] = useState<number>(window.innerHeight);
+
+    // Update height on window resize
+    useEffect(() => {
+        const handleResize = () => {
+            setWindowHeight(window.innerHeight - 500);
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, []);
 
     useEffect(() => {
-        // Listen for player list updates
         socket.on('playerListUpdated', (players: string[]) => {
             setPlayersList(players);
         });
@@ -25,7 +39,7 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, o
         });
 
         socket.on('kicked', (kickedRoomId) => {
-            if (kickedRoomId == roomId) {
+            if (kickedRoomId === roomId) {
                 onLeave();
             }
         });
@@ -36,7 +50,7 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, o
             socket.off('gameStarted');
             socket.off('kicked');
         };
-    }, []);
+    }, [onGameStart, onLeave, roomId]);
 
     const handleKickPlayer = () => {
         if (roomId && selectedPlayer) {
@@ -47,32 +61,46 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, o
     const handleStartGame = () => {
         if (roomId) {
             socket.emit('startGame', roomId, (success: boolean, gameType: GameType, players: string[], extraInfo: unknown) => {
-                console.log("pressed start game");
-                console.log(`roomId - ${roomId}, status - ${success}, type - ${gameType}`)
-                if (success)
-                    onGameStart(gameType, players, extraInfo);
+                if (success) onGameStart(gameType, players, extraInfo);
             });
         }
     };
 
     return (
-        <div>
+        <div className="lobby" style={{ height: windowHeight }}>
+            <h1>Welcome to the Lobby</h1>
+            <div className="game-details">
+                <h2>Game: {GameType.Trivia}</h2>
+                <p>Rounds: {null}</p>
+                <p>Special Rules: {null}</p>
+            </div>
             <h2>Welcome to Room {roomId}!</h2>
             <p>You have successfully joined the room as {roomRole}.</p>
 
-            <h2>Players in Room:</h2>
-            <ul>
-                {playersList.map(player => (
-                    <li key={player}>{player}</li>
-                ))}
-            </ul>
+            <div className="players-list">
+                <h2>Players:</h2>
+                <ul>
+                    {playersList.map(player => (
+                        <li key={player}>
+                            {player}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+            <button className="ready-button">I'm Ready!</button>
+
+            <div className="leave-button-container">
+                <button onClick={() => { socket.emit('leaveRoom', roomId); onLeave(); }} className="leave-button">
+                    Leave Room
+                </button>
+            </div>
 
             {roomRole === 'Admin' && (
-                <div>
+                <div className="admin-controls">
                     <h3>Admin Controls:</h3>
-                    <button onClick={handleStartGame}>Start Game</button>
+                    <button onClick={handleStartGame} className="admin-button">Start Game</button>
 
-                    <div style={{ marginTop: '8px' }}>
+                    <div className="kick-player">
                         <select
                             value={selectedPlayer}
                             onChange={(e) => setSelectedPlayer(e.target.value)}
@@ -84,19 +112,17 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, o
                                 </option>
                             ))}
                         </select>
-                        <button onClick={handleKickPlayer} disabled={!selectedPlayer}>
+                        <button
+                            onClick={handleKickPlayer}
+                            disabled={!selectedPlayer}
+                            className="admin-button"
+                        >
                             Kick Player
                         </button>
                     </div>
                 </div>
             )}
-
-            <div>
-                <button onClick={() => { socket.emit('leaveRoom', roomId); onLeave(); }}>
-                    Leave Room
-                </button>
-            </div>
-        </div>
+        </div >
     );
 };
 

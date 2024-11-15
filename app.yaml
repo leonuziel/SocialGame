@@ -1,0 +1,29 @@
+runtime: nodejs20
+
+handlers:
+  # Serve static files (JS, CSS, images)
+  - url: /static
+    static_dir: frontend/build/static
+
+  # Serve the rest of the static files (e.g., favicon, manifest, logo)
+  - url: /favicon.ico
+    static_files: frontend/build/favicon.ico
+    upload: frontend/build/favicon.ico
+
+  - url: /manifest.json
+    static_files: client/build/manifest.json
+    upload: client/build/manifest.json
+
+  - url: /logo192.png
+    static_files: client/build/logo192.png
+    upload: client/build/logo192.png
+
+  # Serve index.html for root and 404s (SPA fallback)
+  - url: /
+    static_files: client/build/index.html
+    upload: client/build/index.html
+
+  # Fallback to index.html for all other routes (SPA routing)
+  - url: /.*  
+    static_files: client/build/index.html
+    upload: client/build/index.html
