@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import socket from '../api/socket';
 
 const JoinRoom: React.FC<{ onJoin: (roomId: string, role: string, players: string[]) => void }> = ({ onJoin }) => {
