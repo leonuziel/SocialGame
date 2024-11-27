@@ -1,5 +1,4 @@
 import React from 'react';
-import logo from '../logo.svg';
 import { GameType } from '../utils';
 import TriviaGame from '../Games/Trivia';
 
@@ -12,7 +11,7 @@ interface GameViewProps {
 const GameView: React.FC<GameViewProps> = ({ roomId, roomRole, gameType }) => {
   return (
     <div>
-x      <h1>Welcome to the Game {gameType} App</h1>
+      <h1>Welcome to the Game {gameType} App</h1>
       <h2>You are {roomRole} in this game</h2>
       <h3>Enjoy</h3>
       <p>id:{roomId}</p>

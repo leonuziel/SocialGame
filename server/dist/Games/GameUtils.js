@@ -8,8 +8,9 @@ var GameType;
     GameType["Trivia"] = "Trivia";
 })(GameType || (exports.GameType = GameType = {}));
 class Game {
-    constructor(gameType, players) {
+    constructor(gameType, players, initialPlayerData) {
         this.gameType = gameType;
+        this.gameData = initialPlayerData;
         this.playersSockets = players.map(utils_1.socketIdToSocket);
         this.setupGameEvents();
     }
@@ -17,7 +18,7 @@ class Game {
         return this.gameType;
     }
     setupGameEvents() {
-        this.playersSockets.forEach(playerSocket => {
+        this.playersSockets.forEach((playerSocket) => {
             this.subscribePlayerToEvents(playerSocket);
         });
     }
@@ -76,20 +77,51 @@ const questions = [
 ];
 class TriviaGame extends Game {
     constructor(players) {
-        super(GameType.Trivia, players);
+        const initialPlayerData = {};
+        const initialGeneralData = {};
+        const gameData = {
+            generalData: initialGeneralData,
+            playerData: initialPlayerData
+        };
+        super(GameType.Trivia, players, gameData);
+        this.resetGameState(players);
+    }
+    resetGameState(players) {
+        this.gameData.generalData = {};
+        this.gameData.playerData = {};
+        players.forEach(playerId => {
+            this.gameData.playerData[playerId] = { score: 0, questionsLeft: TriviaGame.numberOfInitialQuestions };
+        });
     }
     subscribePlayerToEvents(playerSocket) {
         playerSocket.on('submitAnswer', (answerId, callback) => {
             const isCorrectAnswer = answerId == 1;
-            callback(isCorrectAnswer);
+            this.updatePlayerState(playerSocket.id, isCorrectAnswer);
+            if (this.gameData.playerData[playerSocket.id].questionsLeft > 0) {
+                const selectedQuestion = this.getRandomQuestion();
+                callback(isCorrectAnswer, selectedQuestion, this.gameData.playerData[playerSocket.id]);
+            }
+            else {
+                playerSocket.emit('endGame', this.gameData.playerData[playerSocket.id]);
+            }
         });
         playerSocket.on('getQuestion', (callback) => {
-            // Get a random index from the questions array
-            const randomIndex = Math.floor(Math.random() * questions.length);
-            const selectedQuestion = questions[randomIndex];
+            const selectedQuestion = this.getRandomQuestion();
             // Send the question and options via the callback
-            callback(selectedQuestion.question, selectedQuestion.options);
+            callback(selectedQuestion.question, selectedQuestion.options, this.gameData.playerData[playerSocket.id]);
         });
+    }
+    getRandomQuestion() {
+        const randomIndex = Math.floor(Math.random() * questions.length);
+        const selectedQuestion = questions[randomIndex];
+        return selectedQuestion;
+    }
+    updatePlayerState(playerId, isCorrectAnswer) {
+        var playerData = this.gameData.playerData[playerId];
+        playerData.questionsLeft--;
+        if (isCorrectAnswer)
+            playerData.score++;
     }
 }
 exports.TriviaGame = TriviaGame;
+TriviaGame.numberOfInitialQuestions = 5;

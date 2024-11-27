@@ -7,13 +7,15 @@ export enum GameType {
 }
 
 
-export abstract class Game {
+export abstract class Game<S, T> {
     protected gameType: GameType;
     protected playersSockets: SocialGameSocket[];
+    protected gameData: { generalData: S, playerData: { [playerId: string]: T } };
 
 
-    protected constructor(gameType: GameType, players: string[]) {
+    protected constructor(gameType: GameType, players: string[], initialPlayerData: { generalData: S, playerData: { [playerId: string]: T } }) {
         this.gameType = gameType;
+        this.gameData = initialPlayerData;
         this.playersSockets = players.map(socketIdToSocket);
         this.setupGameEvents();
     }
@@ -23,7 +25,7 @@ export abstract class Game {
     }
 
     private setupGameEvents(): void {
-        this.playersSockets.forEach(playerSocket => {
+        this.playersSockets.forEach((playerSocket: Socket) => {
             this.subscribePlayerToEvents(playerSocket);
         });
     }
@@ -86,31 +88,70 @@ const questions: { question: string, options: string[], correctIndex: number }[]
     { question: "What is the capital city of Australia?", options: ["Sydney", "Melbourne", "Perth", "Canberra"], correctIndex: 3 }
 ];
 
+type TriviaPlayerData = { score: number, questionsLeft: number }
+type TriviaGeneralData = {}
+type TriviaGameData = { generalData: TriviaGeneralData, playerData: { [playerId: string]: TriviaPlayerData } }
 
-export class TriviaGame extends Game {
+export class TriviaGame extends Game<TriviaGeneralData, TriviaPlayerData> {
+    static numberOfInitialQuestions = 5;
 
     constructor(players: string[]) {
-        super(GameType.Trivia, players);
+        const initialPlayerData: { [playerID: string]: TriviaPlayerData } = {};
+        const initialGeneralData: TriviaGeneralData = {};
+        const gameData: TriviaGameData = {
+            generalData: initialGeneralData,
+            playerData: initialPlayerData
+        }
+        super(GameType.Trivia, players, gameData);
+        this.resetGameState(players);
+    }
+
+    private resetGameState(players: string[]): void {
+        this.gameData.generalData = {};
+        this.gameData.playerData = {};
+        players.forEach(playerId => {
+            this.gameData.playerData[playerId] = { score: 0, questionsLeft: TriviaGame.numberOfInitialQuestions }
+        });
     }
 
     subscribePlayerToEvents(playerSocket: Socket) {
-        playerSocket.on('submitAnswer', (answerId: number, callback: (isTrue: boolean) => void) => {
+        playerSocket.on('submitAnswer', (answerId: number, callback: (isTrue: boolean, nextQuestion: { question: string, options: string[] }, playerData: TriviaPlayerData) => void) => {
             const isCorrectAnswer = answerId == 1;
-            callback(isCorrectAnswer);
+            this.updatePlayerState(playerSocket.id, isCorrectAnswer)
+            if (this.gameData.playerData[playerSocket.id].questionsLeft > 0) {
+                const selectedQuestion = this.getRandomQuestion();
+                callback(isCorrectAnswer, selectedQuestion, this.gameData.playerData[playerSocket.id]);
+            } else {
+                playerSocket.emit('endGame', this.gameData.playerData[playerSocket.id])
+            }
+
         });
         playerSocket.on('getQuestion', (callback: (
             question: string,
-            choices: string[]
+            choices: string[],
+            playerData: TriviaPlayerData
         ) => void) => {
-            // Get a random index from the questions array
-            const randomIndex = Math.floor(Math.random() * questions.length);
-            const selectedQuestion = questions[randomIndex];
+            const selectedQuestion = this.getRandomQuestion();
 
             // Send the question and options via the callback
-            callback(selectedQuestion.question, selectedQuestion.options);
+            callback(selectedQuestion.question, selectedQuestion.options, this.gameData.playerData[playerSocket.id]);
         });
+
+
     }
+
+    private getRandomQuestion() {
+        const randomIndex = Math.floor(Math.random() * questions.length);
+        const selectedQuestion = questions[randomIndex];
+        return selectedQuestion;
+    }
+
+    private updatePlayerState(playerId: string, isCorrectAnswer: boolean) {
+        var playerData = this.gameData.playerData[playerId];
+        playerData.questionsLeft--;
+        if (isCorrectAnswer)
+            playerData.score++;
+    }
+
 }
-
-
 

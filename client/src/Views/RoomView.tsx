@@ -38,7 +38,7 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, o
             onGameStart(type, players, extraInfo);
         });
 
-        socket.on('kicked', (kickedRoomId) => {
+        socket.on('kicked', (kickedRoomId: string) => {
             if (kickedRoomId === roomId) {
                 onLeave();
             }
