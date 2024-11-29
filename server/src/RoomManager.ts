@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { Game, TriviaGame } from './Games/GameUtils';
+import { Game, ToohakGame, TriviaGame } from './Games/GameUtils';
 
 
 class RoomManager {
@@ -66,9 +66,8 @@ class RoomManager {
     private handleStartGame(socket: Socket, roomId: string, onStartCallback: (success: boolean, gameType: string, players: string[], extraInfo: unknown) => void) {
         if (this.isAdmin(socket, roomId)) {
             const players = this.getPlayersInRoom(roomId);
-            const game: Game = new TriviaGame(players);
+            const game: Game<{}, {}> = new ToohakGame(players);
             this.roomIdToGame.set(roomId, game);
-
 
             onStartCallback(true, game.getGameType(), players, {});
             socket.to(roomId).emit('gameStarted', { type: game.getGameType(), players, extraInfo: {} });
