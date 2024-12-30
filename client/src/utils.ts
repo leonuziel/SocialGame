@@ -1,4 +1,5 @@
 export enum GameType {
     None = 'None',
-    Trivia = 'Trivia'
+    Trivia = 'Trivia',
+    Toohak = 'Toohak'
 }

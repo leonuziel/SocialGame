@@ -18,9 +18,9 @@ const App: React.FC = () => {
   const [state, setState] = useState<GameState>(GameState.Lobby);
   const [roomData, setRoomData] = useState<roomData>({ id: '', gameType: GameType.None, roleInRoom: '', players: [] });
 
-  const onRoomJoin: (roomId: string, role: string, players: string[]) => void = (roomId, role, players) => {
+  const onRoomJoin: (roomId: string, gameType: GameType, role: string, players: string[]) => void = (roomId, gametype, role, players) => {
     setState(GameState.Room);
-    setRoomData({ id: roomId, gameType: GameType.None, roleInRoom: role, players: players })
+    setRoomData({ id: roomId, gameType: gametype, roleInRoom: role, players: players })
   }
 
   const renderView = () => {
@@ -28,7 +28,7 @@ const App: React.FC = () => {
       case GameState.Lobby:
         return <LobbyView onJoin={onRoomJoin} />;
       case GameState.Room:
-        return <RoomView roomId={roomData.id} initialPlayers={roomData.players} roomRole={roomData.roleInRoom} onLeave={handleLeaveRoom} onGameStart={handleGameStart} />;
+        return <RoomView roomId={roomData.id} gameType={roomData.gameType} initialPlayers={roomData.players} roomRole={roomData.roleInRoom} onLeave={handleLeaveRoom} onGameStart={handleGameStart} />;
       case GameState.Game:
         return <GameView roomId={roomData.id} roomRole={roomData.roleInRoom} gameType={roomData.gameType} />;
       default:

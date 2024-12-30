@@ -15,7 +15,6 @@
   /* Prevent scrolling on the overall container */
 }
 
-.game-details,
 .players-list,
 .admin-controls {
   width: 100%;
@@ -24,6 +23,17 @@
   text-align: center;
   overflow: hidden;
   /* Prevent content overflow */
+}
+
+.game-details {
+  width: 100%;
+  max-width: 800px;
+  margin: 10px 0;
+  text-align: center;
+  overflow: visible;
+  /* Allow the content to show */
+  flex-shrink: 0;
+  /* Prevent shrinking in a flex layout */
 }
 
 .players-list {

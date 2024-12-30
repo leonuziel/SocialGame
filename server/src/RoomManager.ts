@@ -1,12 +1,16 @@
 import { Server, Socket } from 'socket.io';
-import { Game, ToohakGame, TriviaGame } from './Games/GameUtils';
+import { Game, GameType, ToohakGame, TriviaGame } from './Games/GameUtils';
+import { error } from 'console';
 
 
 class RoomManager {
     private static instance: RoomManager;
-    private roomIdToPlayerList: Map<string, string[]> = new Map<string, string[]>();
-    private roomIdToGame: Map<string, Game> = new Map<string, Game>();
+    private roomIdToGame: Map<string, Game<unknown, unknown>> = new Map<string, Game<unknown, unknown>>();
+    private roomIdToRoom: Map<string, { gameType: GameType, players: string[], admin?: string }> =
+        new Map<string, { gameType: GameType, players: string[] }>()
 
+
+    public serverSocket: Server;
     private constructor() { }
 
     public static getInstance(): RoomManager {
@@ -17,10 +21,11 @@ class RoomManager {
     }
 
     public setupRoomEvents(io: Server) {
+        this.serverSocket = io;
         io.on('connection', (socket) => {
             console.log('A user connected:', socket.id);
 
-            socket.on('joinRoom', (room: string, onJoinCallback: (success: boolean, room: string, players: string[], role: 'Admin' | 'Member', message: string) => void) => {
+            socket.on('joinRoom', (room: string, onJoinCallback: (success: boolean, room: string, roomType: GameType, players: string[], role: 'Admin' | 'Member', message: string) => void) => {
                 this.handleJoinRoom(socket, room, onJoinCallback);
             });
             socket.on('leaveRoom', (room: string) => this.handleLeaveRoom(socket, room));
@@ -36,17 +41,24 @@ class RoomManager {
         });
     }
 
-    private handleJoinRoom(socket: Socket, room: string, onJoinCallback: (success: boolean, room: string, players: string[], role: 'Admin' | 'Member', message: string) => void) {
+    private handleJoinRoom(socket: Socket, room: string, onJoinCallback: (success: boolean, room: string, gameType: GameType, players: string[], role: 'Admin' | 'Member', message: string) => void) {
         const canJoinRoom = room.length > 3; // TODO fix this
         if (canJoinRoom) {
+            this.createRoomIfNotExisting(room, socket.id, GameType.Toohak)
             socket.join(room);
             console.log(`User ${socket.id} joined room: ${room}`);
             this.addPlayerToRoom(room, socket);
             this.updateRoomPlayersList(socket, room);
             const players = this.getPlayersInRoom(room);
-            onJoinCallback(true, room, players, 'Admin', `Joined room: ${room}`);
+            onJoinCallback(true, room, GameType.Toohak, players, 'Admin', `Joined room: ${room}`);
         } else {
-            onJoinCallback(false, room, [], "Member", `Failed To Join`);
+            onJoinCallback(false, room, GameType.None, [], "Member", `Failed To Join`);
+        }
+    }
+    createRoomIfNotExisting(roomId: string, initiator: string, gameType: GameType) {
+        const roomData = this.roomIdToRoom.get(roomId)
+        if (!roomData) {
+            this.roomIdToRoom.set(roomId, { gameType, players: [], admin: initiator })
         }
     }
 
@@ -66,7 +78,7 @@ class RoomManager {
     private handleStartGame(socket: Socket, roomId: string, onStartCallback: (success: boolean, gameType: string, players: string[], extraInfo: unknown) => void) {
         if (this.isAdmin(socket, roomId)) {
             const players = this.getPlayersInRoom(roomId);
-            const game: Game<{}, {}> = new ToohakGame(players);
+            const game: Game<{}, {}> = new ToohakGame(roomId, players, socket);
             this.roomIdToGame.set(roomId, game);
 
             onStartCallback(true, game.getGameType(), players, {});
@@ -77,16 +89,18 @@ class RoomManager {
     }
 
     private addPlayerToRoom(room: string, playerSocket: Socket) {
-        if (!this.roomIdToPlayerList.has(room)) {
-            this.roomIdToPlayerList.set(room, []);
+        if (!this.roomIdToRoom.has(room)) {
+            this.roomIdToRoom.set(room, { gameType: GameType.None, players: [] });
         }
-        this.roomIdToPlayerList.get(room)!.push(playerSocket.id);
+        this.roomIdToRoom.get(room)!.players.push(playerSocket.id);
     }
 
     private getPlayersInRoom(room: string): string[] {
-        return this.roomIdToPlayerList.get(room) || [];
+        const roomData = this.roomIdToRoom.get(room)
+        if (!roomData)
+            throw Error()
+        return roomData.players || [];
     }
-
     private updateRoomPlayersList(socket: Socket, room: string) {
         socket.to(room).emit('playerListUpdated', this.getPlayersInRoom(room));
     }
@@ -96,9 +110,12 @@ class RoomManager {
     }
 
     private removePlayerById(room: string, playerId: string, socket: Socket) {
+        const roomData = this.roomIdToRoom.get(room)
+        if (!roomData)
+            throw Error()
         socket.leave(room);
-        const filteredList = this.roomIdToPlayerList.get(room)?.filter((socketId) => socketId !== playerId) || [];
-        this.roomIdToPlayerList.set(room, filteredList);
+        const filteredList = this.roomIdToRoom.get(room)?.players?.filter((socketId) => socketId !== playerId) || [];
+        roomData.players = filteredList;
     }
 
     private isAdmin(_socket: Socket, _roomId: string): boolean {
@@ -108,3 +125,5 @@ class RoomManager {
 }
 
 export default RoomManager.getInstance();
+
+

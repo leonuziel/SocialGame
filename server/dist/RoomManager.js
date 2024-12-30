@@ -3,8 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const GameUtils_1 = require("./Games/GameUtils");
 class RoomManager {
     constructor() {
-        this.roomIdToPlayerList = new Map();
         this.roomIdToGame = new Map();
+        this.roomIdToRoom = new Map();
     }
     static getInstance() {
         if (!RoomManager.instance) {
@@ -31,15 +31,22 @@ class RoomManager {
     handleJoinRoom(socket, room, onJoinCallback) {
         const canJoinRoom = room.length > 3; // TODO fix this
         if (canJoinRoom) {
+            this.createRoomIfNotExisting(room, socket.id, GameUtils_1.GameType.Toohak);
             socket.join(room);
             console.log(`User ${socket.id} joined room: ${room}`);
             this.addPlayerToRoom(room, socket);
             this.updateRoomPlayersList(socket, room);
             const players = this.getPlayersInRoom(room);
-            onJoinCallback(true, room, players, 'Admin', `Joined room: ${room}`);
+            onJoinCallback(true, room, GameUtils_1.GameType.Toohak, players, 'Admin', `Joined room: ${room}`);
         }
         else {
-            onJoinCallback(false, room, [], "Member", `Failed To Join`);
+            onJoinCallback(false, room, GameUtils_1.GameType.None, [], "Member", `Failed To Join`);
+        }
+    }
+    createRoomIfNotExisting(roomId, initiator, gameType) {
+        const roomData = this.roomIdToRoom.get(roomId);
+        if (!roomData) {
+            this.roomIdToRoom.set(roomId, { gameType, players: [], admin: initiator });
         }
     }
     handleLeaveRoom(socket, room) {
@@ -56,7 +63,7 @@ class RoomManager {
     handleStartGame(socket, roomId, onStartCallback) {
         if (this.isAdmin(socket, roomId)) {
             const players = this.getPlayersInRoom(roomId);
-            const game = new GameUtils_1.TriviaGame(players);
+            const game = new GameUtils_1.ToohakGame(players);
             this.roomIdToGame.set(roomId, game);
             onStartCallback(true, game.getGameType(), players, {});
             socket.to(roomId).emit('gameStarted', { type: game.getGameType(), players, extraInfo: {} });
@@ -66,13 +73,16 @@ class RoomManager {
         }
     }
     addPlayerToRoom(room, playerSocket) {
-        if (!this.roomIdToPlayerList.has(room)) {
-            this.roomIdToPlayerList.set(room, []);
+        if (!this.roomIdToRoom.has(room)) {
+            this.roomIdToRoom.set(room, { gameType: GameUtils_1.GameType.None, players: [] });
         }
-        this.roomIdToPlayerList.get(room).push(playerSocket.id);
+        this.roomIdToRoom.get(room).players.push(playerSocket.id);
     }
     getPlayersInRoom(room) {
-        return this.roomIdToPlayerList.get(room) || [];
+        const roomData = this.roomIdToRoom.get(room);
+        if (!roomData)
+            throw Error();
+        return roomData.players || [];
     }
     updateRoomPlayersList(socket, room) {
         socket.to(room).emit('playerListUpdated', this.getPlayersInRoom(room));
@@ -81,10 +91,13 @@ class RoomManager {
         this.removePlayerById(room, socket.id, socket);
     }
     removePlayerById(room, playerId, socket) {
-        var _a;
+        var _a, _b;
+        const roomData = this.roomIdToRoom.get(room);
+        if (!roomData)
+            throw Error();
         socket.leave(room);
-        const filteredList = ((_a = this.roomIdToPlayerList.get(room)) === null || _a === void 0 ? void 0 : _a.filter((socketId) => socketId !== playerId)) || [];
-        this.roomIdToPlayerList.set(room, filteredList);
+        const filteredList = ((_b = (_a = this.roomIdToRoom.get(room)) === null || _a === void 0 ? void 0 : _a.players) === null || _b === void 0 ? void 0 : _b.filter((socketId) => socketId !== playerId)) || [];
+        roomData.players = filteredList;
     }
     isAdmin(_socket, _roomId) {
         // Placeholder admin check

@@ -1,14 +1,14 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.TriviaGame = exports.Game = exports.GameType = void 0;
+exports.ToohakGame = exports.TriviaGame = exports.Game = exports.GameType = void 0;
 const utils_1 = require("../utils");
 var GameType;
 (function (GameType) {
     GameType["None"] = "None";
     GameType["Trivia"] = "Trivia";
+    GameType["Toohak"] = "Toohak";
 })(GameType || (exports.GameType = GameType = {}));
 class Game {
-    constructor(gameType, players, initialPlayerData) {
+    constructor(roomId, gameType, players, initialPlayerData) {
+        this.roomId = roomId
         this.gameType = gameType;
         this.gameData = initialPlayerData;
         this.playersSockets = players.map(utils_1.socketIdToSocket);
@@ -125,3 +125,80 @@ class TriviaGame extends Game {
 }
 exports.TriviaGame = TriviaGame;
 TriviaGame.numberOfInitialQuestions = 5;
+var GameState;
+(function (GameState) {
+    GameState[GameState["waiting"] = 0] = "waiting";
+    GameState[GameState["active"] = 1] = "active";
+    GameState[GameState["ended"] = 2] = "ended";
+})(GameState || (GameState = {}));
+
+
+
+class ToohakGame extends Game {
+    constructor(players) {
+        const initialPlayerData = {};
+        const initialGeneralData = {
+            status: GameState.waiting,
+            currentQuestion: 0,
+            questionData: { question: '', options: [], correctIndex: 0 }
+        };
+        const gameData = {
+            generalData: initialGeneralData,
+            playerData: initialPlayerData
+        };
+        super(GameType.Trivia, players, gameData);
+        this.resetGameState(players);
+    }
+    subscribePlayerToEvents(playerSocket) {
+        playerSocket.on('submitAnswer', (answerId) => {
+            const isCorrectAnswer = answerId == this.gameData.generalData.questionData.correctIndex;
+            const playerData = this.gameData.playerData[playerSocket.id];
+            playerData.answerTime = 1;
+            playerData.answeredStatus = true;
+            playerData.score += isCorrectAnswer ? playerData.answerTime : 0;
+            this.checkSendingNextQuestion();
+        });
+    }
+    resetGameState(players) {
+        this.gameData.generalData = {
+            status: GameState.active,
+            currentQuestion: 0,
+            questionData: getRandomQuestion()
+        };
+        this.gameData.playerData = {};
+        players.forEach(playerId => {
+            this.gameData.playerData[playerId] = {
+                name: playerId,
+                score: 0,
+                answeredStatus: false,
+                answerTime: -1
+            };
+        });
+        this.id
+    }
+    checkSendingNextQuestion() {
+        Object.values(this.gameData.playerData).forEach(playerData => {
+            if (!playerData.answeredStatus)
+                return;
+        });
+        this.gameData.generalData.currentQuestion++;
+        if (this.gameData.generalData.currentQuestion >= ToohakGame.numberOfQuestions) {
+            this.endGame();
+        }
+        else {
+            this.nextQuestion();
+        }
+    }
+    //#region Extending API
+    nextQuestion() {
+    }
+    endGame() {
+    }
+}
+exports.ToohakGame = ToohakGame;
+ToohakGame.numberOfQuestions = 5;
+const getRandomQuestion = () => {
+    const randomIndex = Math.floor(Math.random() * questions.length);
+    const selectedQuestion = questions[randomIndex];
+    return selectedQuestion;
+};

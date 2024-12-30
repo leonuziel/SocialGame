@@ -1,5 +1,6 @@
 import { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { SocialGameSocket, socketIdToSocket } from '../utils';
+import RoomManager from '../RoomManager';
 
 export enum GameType {
     None = 'None',
@@ -9,19 +10,22 @@ export enum GameType {
 
 
 export abstract class Game<GeneralData, PlayerData> {
+    protected roomId: string;
     protected gameType: GameType;
     protected playersSockets: SocialGameSocket[];
     protected gameData: { generalData: GeneralData, playerData: { [playerId: string]: PlayerData } };
+    protected socket: Socket;
 
-
-    protected constructor(gameType: GameType, players: string[], initialPlayerData: { generalData: GeneralData, playerData: { [playerId: string]: PlayerData } }) {
+    protected constructor(roomId: string, gameType: GameType, players: string[], initialPlayerData: { generalData: GeneralData, playerData: { [playerId: string]: PlayerData } }, socket: Socket) {
+        this.socket = socket;
+        this.roomId = roomId;
         this.gameType = gameType;
         this.gameData = initialPlayerData;
         this.playersSockets = players.map(socketIdToSocket);
         this.setupGameEvents();
     }
 
-    public getGameType() {
+    public getGameType(): GameType {
         return this.gameType;
     }
 
@@ -96,14 +100,14 @@ type TriviaGameData = { generalData: TriviaGeneralData, playerData: { [playerId:
 export class TriviaGame extends Game<TriviaGeneralData, TriviaPlayerData> {
     static numberOfInitialQuestions = 5;
 
-    constructor(players: string[]) {
+    constructor(roomId: string, players: string[], socket: Socket) {
         const initialPlayerData: { [playerID: string]: TriviaPlayerData } = {};
         const initialGeneralData: TriviaGeneralData = {};
         const gameData: TriviaGameData = {
             generalData: initialGeneralData,
             playerData: initialPlayerData
         }
-        super(GameType.Trivia, players, gameData);
+        super(roomId, GameType.Trivia, players, gameData, socket);
         this.resetGameState(players);
     }
 
@@ -176,8 +180,9 @@ type ToohakGameData = {
 
 export class ToohakGame extends Game<ToohakGeneralData, ToohakPlayerData> {
     static numberOfQuestions = 5;
+    roundTimeInMS = 10000;
 
-    constructor(players: string[]) {
+    constructor(roomId: string, players: string[], socket: Socket) {
         const initialPlayerData: { [playerID: string]: ToohakPlayerData } = {};
         const initialGeneralData: ToohakGeneralData = {
             status: GameState.waiting,
@@ -188,19 +193,51 @@ export class ToohakGame extends Game<ToohakGeneralData, ToohakPlayerData> {
             generalData: initialGeneralData,
             playerData: initialPlayerData
         }
-        super(GameType.Trivia, players, gameData);
+        super(roomId, GameType.Trivia, players, gameData, socket);
         this.resetGameState(players);
     }
 
     protected subscribePlayerToEvents(playerSocket: Socket): void {
-        playerSocket.on('submitAnswer', (answerId: number) => {
-            const isCorrectAnswer = answerId == this.gameData.generalData.questionData.correctIndex;
-            const playerData = this.gameData.playerData[playerSocket.id]
-            playerData.answerTime = 1;
-            playerData.answeredStatus = true
-            playerData.score += isCorrectAnswer ? playerData.answerTime : 0;
-            this.checkSendingNextQuestion()
+        playerSocket.on('submitAnswer', (questionId: number, answerId: number) => {
+            const playerId = playerSocket.id
+            if (questionId == this.gameData.generalData.currentQuestion)
+                this.updatePlayerScore(answerId, playerId);
         })
+        const isAdmin = false
+        if (isAdmin) {
+            playerSocket.on('startGame', () => {
+                this.QuestionSendState()
+            })
+        }
+    }
+
+    private updatePlayerScore(answerId: number, playerId: string) {
+        const isCorrectAnswer = answerId == this.gameData.generalData.questionData.correctIndex;
+        const playerData = this.gameData.playerData[playerId];
+        playerData.answerTime = 1;
+        playerData.answeredStatus = true;
+        playerData.score += isCorrectAnswer ? playerData.answerTime : 0;
+    }
+
+    private QuestionSendState() {
+        this.sendNextQuestion()
+        let timer: ReturnType<typeof setTimeout> = setTimeout(this.EvaluateScoreState, this.roundTimeInMS);
+        //clearTimeout(timer);
+    }
+
+    private EvaluateScoreState(): void {
+        this.gameData.generalData.currentQuestion++;
+        Object.values(this.gameData.playerData).forEach(playerData => {
+            if (!playerData.answeredStatus) {//if player didn't answer
+                //TODO set score as zero for player
+            }
+        });
+        const shouldSendNextQuestion = this.gameData.generalData.currentQuestion < ToohakGame.numberOfQuestions
+        if (shouldSendNextQuestion) {
+            this.QuestionSendState()
+        } else {
+            this.endGameState()
+        }
     }
 
     private resetGameState(players: string[]): void {
@@ -218,28 +255,21 @@ export class ToohakGame extends Game<ToohakGeneralData, ToohakPlayerData> {
                 answerTime: -1
             }
         });
+        this.sendNextQuestion()
     }
 
-    private checkSendingNextQuestion() {
-        Object.values(this.gameData.playerData).forEach(playerData => {
-            if (!playerData.answeredStatus) return;
-        });
-        this.gameData.generalData.currentQuestion++;
-        if (this.gameData.generalData.currentQuestion >= ToohakGame.numberOfQuestions) {
-            this.endGame()
-        } else {
-            this.nextQuestion()
-        }
-    }
+
 
     //#region Extending API
 
-    private nextQuestion() {
-
+    private sendNextQuestion() {
+        const selectedQuestion = getRandomQuestion()
+        this.gameData.generalData.questionData = selectedQuestion
+        this.socket.to(this.roomId).emit('question', { question: selectedQuestion.question, options: selectedQuestion.options })
     }
 
-    private endGame() {
-        
+    private endGameState() {
+        this.socket.to(this.roomId).emit('endGame', this.gameData)
     }
 
     //#endregion

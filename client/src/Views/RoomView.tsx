@@ -5,13 +5,14 @@ import './RoomView.css';
 
 interface RoomViewProps {
     roomId: string;
+    gameType:GameType
     roomRole: string;
     initialPlayers: string[];
     onLeave: () => void;
     onGameStart: (type: GameType, players: string[], extraInfo: unknown) => void;
 }
 
-const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, onLeave, onGameStart }) => {
+const RoomView: React.FC<RoomViewProps> = ({ roomId,gameType, roomRole, initialPlayers, onLeave, onGameStart }) => {
     const [playersList, setPlayersList] = useState<string[]>(initialPlayers);
     const [selectedPlayer, setSelectedPlayer] = useState<string>('');
     const [windowHeight, setWindowHeight] = useState<number>(window.innerHeight);
@@ -68,9 +69,8 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId, roomRole, initialPlayers, o
 
     return (
         <div className="lobby" style={{ height: windowHeight }}>
-            <h1>Welcome to the Lobby</h1>
             <div className="game-details">
-                <h2>Game: {GameType.Trivia}</h2>
+                <h2>Game: {gameType}</h2>
                 <p>Rounds: {null}</p>
                 <p>Special Rules: {null}</p>
             </div>

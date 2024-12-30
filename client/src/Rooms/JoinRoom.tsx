@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import socket from '../api/socket';
+import { GameType } from '../utils';
 
-const JoinRoom: React.FC<{ onJoin: (roomId: string, role: string, players: string[]) => void }> = ({ onJoin }) => {
+const JoinRoom: React.FC<{ onJoin: (roomId: string, gameType: GameType, role: string, players: string[]) => void }> = ({ onJoin }) => {
     const [room, setRoom] = useState<string>('');
     const [status, setStatus] = useState<string>('');
 
     const handleJoinRoom = () => {
         if (room) {
-            socket.emit('joinRoom', room, (success: boolean, room: string, players: string[], role: 'Admin' | 'member', message: string) => {
+            socket.emit('joinRoom', room, (success: boolean, room: string, gameType: GameType, players: string[], role: 'Admin' | 'member', message: string) => {
                 if (success) {
                     setStatus(`Successfully joined room: ${room}`);
-                    onJoin(room, role, players)
+                    onJoin(room, gameType, role, players)
                 } else {
                     setStatus(message);
                 }
