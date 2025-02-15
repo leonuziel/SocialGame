@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import socket from '../api/socket';
 import { GameType } from '../utils';
+import { Socket } from 'socket.io-client';
 
-const JoinRoom: React.FC<{ onJoin: (roomId: string, gameType: GameType, role: string, players: string[]) => void }> = ({ onJoin }) => {
+const JoinRoom: React.FC<{ onJoin: (roomId: string, gameType: GameType, role: string, players: string[]) => void, socket: Socket }> = ({ onJoin, socket }) => {
     const [room, setRoom] = useState<string>('');
     const [status, setStatus] = useState<string>('');
 

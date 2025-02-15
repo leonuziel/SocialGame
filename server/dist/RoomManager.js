@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const GameUtils_1 = require("./Games/GameUtils");
+const Toohak_1 = require("./Games/Toohak");
 class RoomManager {
     constructor() {
         this.roomIdToGame = new Map();
@@ -13,6 +14,7 @@ class RoomManager {
         return RoomManager.instance;
     }
     setupRoomEvents(io) {
+        this.serverSocket = io;
         io.on('connection', (socket) => {
             console.log('A user connected:', socket.id);
             socket.on('joinRoom', (room, onJoinCallback) => {
@@ -63,7 +65,7 @@ class RoomManager {
     handleStartGame(socket, roomId, onStartCallback) {
         if (this.isAdmin(socket, roomId)) {
             const players = this.getPlayersInRoom(roomId);
-            const game = new GameUtils_1.ToohakGame(players);
+            const game = new Toohak_1.ToohakGame(roomId, players, players, socket);
             this.roomIdToGame.set(roomId, game);
             onStartCallback(true, game.getGameType(), players, {});
             socket.to(roomId).emit('gameStarted', { type: game.getGameType(), players, extraInfo: {} });

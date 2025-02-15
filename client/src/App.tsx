@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './App.css';
 import LobbyView from './Views/LobbyView';
 import RoomView from './Views/RoomView';
 import GameView from './Views/GameView';
 import { GameType } from './utils';
+import ServerSocket from './api/socket';
+import { Socket } from 'socket.io-client';
 
 enum GameState { Lobby, Room, Game }
 
@@ -15,8 +17,10 @@ interface roomData {
 }
 
 const App: React.FC = () => {
+  const [socket, _] = useState<Socket>(ServerSocket)
   const [state, setState] = useState<GameState>(GameState.Lobby);
   const [roomData, setRoomData] = useState<roomData>({ id: '', gameType: GameType.None, roleInRoom: '', players: [] });
+
 
   const onRoomJoin: (roomId: string, gameType: GameType, role: string, players: string[]) => void = (roomId, gametype, role, players) => {
     setState(GameState.Room);
@@ -26,7 +30,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (state) {
       case GameState.Lobby:
-        return <LobbyView onJoin={onRoomJoin} />;
+        return <LobbyView onJoin={onRoomJoin} socket={socket} />;
       case GameState.Room:
         return <RoomView roomId={roomData.id} gameType={roomData.gameType} initialPlayers={roomData.players} roomRole={roomData.roleInRoom} onLeave={handleLeaveRoom} onGameStart={handleGameStart} />;
       case GameState.Game:

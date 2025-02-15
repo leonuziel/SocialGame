@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
-import { Game, GameType, ToohakGame, TriviaGame } from './Games/GameUtils';
+import { Game, GameType, TriviaGame } from './Games/GameUtils';
+import { ToohakGame } from './Games/Toohak';
 import { error } from 'console';
 
 
@@ -10,7 +11,7 @@ class RoomManager {
         new Map<string, { gameType: GameType, players: string[] }>()
 
 
-    public serverSocket: Server;
+    public serverSocket?: Server;
     private constructor() { }
 
     public static getInstance(): RoomManager {
@@ -78,7 +79,7 @@ class RoomManager {
     private handleStartGame(socket: Socket, roomId: string, onStartCallback: (success: boolean, gameType: string, players: string[], extraInfo: unknown) => void) {
         if (this.isAdmin(socket, roomId)) {
             const players = this.getPlayersInRoom(roomId);
-            const game: Game<{}, {}> = new ToohakGame(roomId, players, socket);
+            const game: Game<{}, {}> = new ToohakGame(roomId, players, players, socket);
             this.roomIdToGame.set(roomId, game);
 
             onStartCallback(true, game.getGameType(), players, {});
