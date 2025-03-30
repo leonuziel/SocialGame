@@ -1,0 +1,58 @@
+// tsconfig.json
+{
+  "compilerOptions": {
+    /* Base Options: */
+    "esModuleInterop": true, // Enables compatibility with CommonJS modules like 'require'. Recommended for Node.js.
+    "skipLibCheck": true, // Skip type checking of declaration files (.d.ts), speeds up compilation.
+    "target": "ES2016", // Target ECMAScript version for compiled JavaScript (ES6/ES2015 is also common). ES2016 is widely supported by modern Node.js.
+    "allowJs": true, // Allow JavaScript files to be included in the compilation process.
+    "resolveJsonModule": true, // Allow importing .json files.
+    "moduleDetection": "force", // Treat files as modules even without explicit imports/exports.
+
+    /* Strictness */
+    "strict": true, // Enable all strict type-checking options (recommended for new projects).
+    // "noImplicitAny": true, // Part of "strict": Raise error on expressions and declarations with an implied 'any' type.
+    // "strictNullChecks": true, // Part of "strict": Handle null and undefined more explicitly.
+    // "strictFunctionTypes": true, // Part of "strict": Enable stricter checking of function types.
+    // "strictBindCallApply": true, // Part of "strict": Enable stricter checking of bind, call, and apply.
+    // "strictPropertyInitialization": true, // Part of "strict": Ensure class properties are initialized in the constructor.
+    // "noImplicitThis": true, // Part of "strict": Raise error on 'this' expressions with an implied 'any' type.
+    // "useUnknownInCatchVariables": true, // Part of "strict": Default catch clause variables to 'unknown' instead of 'any'.
+    // "alwaysStrict": true, // Part of "strict": Ensure 'use strict' is emitted in generated JavaScript.
+    "noUnusedLocals": true, // Report errors on unused local variables.
+    "noUnusedParameters": true, // Report errors on unused parameters.
+    "exactOptionalPropertyTypes": true, // Interpret optional property types exactly as written.
+    "noImplicitReturns": true, // Report error when not all code paths in function return a value.
+    "noFallthroughCasesInSwitch": true, // Report errors for fallthrough cases in switch statement.
+    "noUncheckedIndexedAccess": true, // Add 'undefined' to indexed access result types.
+    // "noImplicitOverride": true, // Ensure overriding members in derived classes are marked with an override modifier.
+
+    /* Module Resolution */
+    "module": "CommonJS", // Specify module code generation: 'CommonJS' is standard for Node.js.
+    "moduleResolution": "node", // Specify module resolution strategy: 'node' mimics Node.js's module resolution.
+    // "baseUrl": "./", // Base directory to resolve non-relative module names (optional).
+    // "paths": {}, // Specify path mappings (optional, for complex aliasing).
+
+    /* Emit */
+    "outDir": "./dist", // Redirect output structure to the directory 'dist'.
+    // "sourceMap": true, // Generates corresponding '.map' files for debugging (useful for development).
+    // "declaration": true, // Generates corresponding '.d.ts' files (useful for libraries).
+
+    /* Project Structure */
+    "rootDir": "./src", // Specify the root directory of input files. Only include files within this directory.
+
+
+    /* Interop Constraints */
+    // "isolatedModules": true, // Transpile each file as a separate module.
+    "allowSyntheticDefaultImports": true, // Allow default imports from modules with no default export (needed by some libraries).
+    "forceConsistentCasingInFileNames": true, // Disallow inconsistently-cased references to the same file.
+
+    /* Type Checking */
+    // "lib": [], // Specify library files to be included in the compilation (e.g., ["ES2016", "DOM"]). Defaults are usually sufficient.
+
+    /* Completeness */
+    // "skipDefaultLibCheck": true, // Deprecated - use skipLibCheck instead.
+  },
+  "include": ["src/**/*"], // Specifies which files TypeScript should compile. Includes all files in the src directory.
+  "exclude": ["node_modules", "**/*.spec.ts", "dist"] // Specifies files/directories TypeScript should ignore.
+}
