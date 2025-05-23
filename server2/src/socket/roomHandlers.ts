@@ -2,6 +2,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Room, Player, Game, GameState } from '../data/models'; // Import data structures
 import * as store from '../data/store'; // Import store functions for state manipulation
+import { GameType } from '../Games/GameUtils'; // Added import
 
 // --- Callback Type Definitions ---
 // Provides type safety for callback functions passed from the client.
@@ -93,7 +94,7 @@ export const handleJoinRoom = (
         // 1. Create player and game objects
         const creatorPlayer = store.createNewPlayer(socket.id, username);
         // Create game, potentially using maxPlayers suggested by client or default
-        const newGame = store.createNewGame(maxPlayers);
+        const newGame = store.createNewGame(GameType.None, maxPlayers); // Modified line
 
         // 2. Create the new Room object, assigning the creator as the admin
         const newRoom: Room = {

@@ -1,5 +1,6 @@
-import { Socket } from "socket.io";
-import { GameState, Question, Game, GameType, getRandomQuestion } from "./GameUtils";
+import { Socket, Server as SocketIOServer } from "socket.io";
+import { Question, Game, GameType, getRandomQuestion } from "./GameUtils";
+import { GameState } from "../data/models";
 
 type ToohakPlayerData = {
     name: string;
@@ -23,10 +24,10 @@ export class ToohakGame extends Game<ToohakGeneralData, ToohakPlayerData> {
     static numberOfQuestions = 5;
     roundTimeInMS = 10000;
 
-    constructor(roomId: string, players: string[], admins: string[], socket: Socket) {
+    constructor(roomId: string, players: string[], admins: string[], io: SocketIOServer) {
         const initialPlayerData: { [playerID: string]: ToohakPlayerData; } = {};
         const initialGeneralData: ToohakGeneralData = {
-            status: GameState.waiting,
+            status: "waiting to start", // Changed to string literal
             currentQuestion: 0,
             questionIndex: -1,
             questionData: { question: '', options: [], correctIndex: 0 }
@@ -35,46 +36,27 @@ export class ToohakGame extends Game<ToohakGeneralData, ToohakPlayerData> {
             generalData: initialGeneralData,
             playerData: initialPlayerData
         };
-        super(roomId, GameType.Trivia, players, admins, gameData, socket);
-        this.gameType = GameType.Toohak
-        this.resetGameState(players);
+        super(roomId, GameType.Toohak, gameData, io); // Updated super call
+        this.resetGameState(players); // players param still used here
     }
 
-    protected subscribePlayerToEvents(playerSocket: Socket): void {
-        playerSocket.on('submitAnswer', (questionId: number, answerId: number) => {
-            const playerId = playerSocket.id;
-            if (questionId == this.gameData.generalData.questionIndex)
-                this.updatePlayerScore(answerId, playerId);
-        });
-        if (true/*this.isAdmin(playerSocket)*/) {
-            console.log("Admin here")
-            playerSocket.on('startQuestions', () => {
-                this.QuestionSendState();
-            });
-        }
-    }
+    // subscribePlayerToEvents removed
 
-    isAdmin(playerSocket: Socket): boolean {
-        //console.table(this.adminsSockets.map(socket => socket.id))
-        //console.log(playerSocket.id)
-        this.adminsSockets.forEach(adminSocket => {
-            if (adminSocket.id == playerSocket.id) return true
-        })
-        return false
-    }
+    // isAdmin removed
 
-    private updatePlayerScore(answerId: number, playerId: string) {
+    public updatePlayerScore(answerId: number, playerId: string) { // Made public
         const isCorrectAnswer = answerId == this.gameData.generalData.questionData.correctIndex;
         const playerData = this.gameData.playerData[playerId];
-        playerData.answerTime = 1;
+        playerData.answerTime = 1; // This logic might need adjustment based on how answerTime is calculated
         playerData.answeredStatus = true;
-        playerData.score += isCorrectAnswer ? playerData.answerTime : 0;
+        playerData.score += isCorrectAnswer ? 1 : 0; // Simplified scoring for now
     }
 
-    private QuestionSendState() {
+    public QuestionSendState() { // Made public
         console.log("sending questions")
         this.sendNextQuestion();
-        let timer: ReturnType<typeof setTimeout> = setTimeout(this.EvaluateScoreState, this.roundTimeInMS);
+        // Consider moving timer management outside or making it more robust
+        setTimeout(() => this.EvaluateScoreState(), this.roundTimeInMS);
         //clearTimeout(timer);
     }
 
@@ -96,7 +78,7 @@ export class ToohakGame extends Game<ToohakGeneralData, ToohakPlayerData> {
     private resetGameState(players: string[]): void {
         const [questionData, index] = getRandomQuestion();
         this.gameData.generalData = {
-            status: GameState.active,
+            status: "in game", // Changed to string literal
             currentQuestion: 0,
             questionData: questionData,
             questionIndex: index
@@ -120,11 +102,11 @@ export class ToohakGame extends Game<ToohakGeneralData, ToohakPlayerData> {
         const [selectedQuestion, index] = getRandomQuestion();
         this.gameData.generalData.questionData = selectedQuestion;
         this.gameData.generalData.questionIndex = index;
-        this.socket.to(this.roomId).emit('question', { questionId: index, question: selectedQuestion.question, options: selectedQuestion.options });
+        this.io.to(this.roomId).emit('question', { questionId: index, question: selectedQuestion.question, options: selectedQuestion.options });
     }
 
     private endGameState() {
-        this.socket.to(this.roomId).emit('endGame', this.gameData);
+        this.io.to(this.roomId).emit('endGame', this.gameData);
     }
 
 }

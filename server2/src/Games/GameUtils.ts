@@ -1,6 +1,4 @@
-import { DefaultEventsMap, Server, Socket } from 'socket.io';
-import { SocialGameSocket, socketIdToSocket } from '../utils';
-import RoomManager from '../RoomManager';
+import { Server as SocketIOServer, Socket } from 'socket.io';
 
 export enum GameType {
     None = 'None',
@@ -12,33 +10,21 @@ export enum GameType {
 export abstract class Game<GeneralData, PlayerData> {
     protected roomId: string;
     protected gameType: GameType;
-    protected playersSockets: SocialGameSocket[];
-    protected adminsSockets: SocialGameSocket[];
     protected gameData: { generalData: GeneralData, playerData: { [playerId: string]: PlayerData } };
-    protected socket: Socket;
+    protected io: SocketIOServer;
 
-    protected constructor(roomId: string, gameType: GameType, players: string[], admins: string[], initialPlayerData: { generalData: GeneralData, playerData: { [playerId: string]: PlayerData } }, socket: Socket) {
-        this.socket = socket;
+    protected constructor(roomId: string, gameType: GameType, initialPlayerData: { generalData: GeneralData, playerData: { [playerId: string]: PlayerData } }, io: SocketIOServer) {
+        this.io = io;
         this.roomId = roomId;
         this.gameType = gameType;
         this.gameData = initialPlayerData;
-        this.playersSockets = players.map(socketIdToSocket);
-        this.adminsSockets = admins.map(socketIdToSocket)
-        this.setupGameEvents();
     }
 
     public getGameType(): GameType {
         return this.gameType;
     }
 
-    private setupGameEvents(): void {
-        this.playersSockets.forEach((playerSocket: Socket) => {
-            this.subscribePlayerToEvents(playerSocket);
-        });
-    }
-
-    protected abstract subscribePlayerToEvents(playerSocket: Socket): void;
-
+    // subscribePlayerToEvents removed
 }
 
 
@@ -95,74 +81,8 @@ const questions: Question[] = [
     { question: "What is the capital city of Australia?", options: ["Sydney", "Melbourne", "Perth", "Canberra"], correctIndex: 3 }
 ];
 
-type TriviaPlayerData = { score: number, questionsLeft: number }
-type TriviaGeneralData = {}
-type TriviaGameData = { generalData: TriviaGeneralData, playerData: { [playerId: string]: TriviaPlayerData } }
+// TriviaPlayerData, TriviaGeneralData, TriviaGameData, and TriviaGame class removed.
 
-export class TriviaGame extends Game<TriviaGeneralData, TriviaPlayerData> {
-    static numberOfInitialQuestions = 5;
-
-    constructor(roomId: string, players: string[], socket: Socket) {
-        const initialPlayerData: { [playerID: string]: TriviaPlayerData } = {};
-        const initialGeneralData: TriviaGeneralData = {};
-        const gameData: TriviaGameData = {
-            generalData: initialGeneralData,
-            playerData: initialPlayerData
-        }
-        super(roomId, GameType.Trivia, players, players, gameData, socket);
-        this.resetGameState(players);
-    }
-
-    private resetGameState(players: string[]): void {
-        this.gameData.generalData = {};
-        this.gameData.playerData = {};
-        players.forEach(playerId => {
-            this.gameData.playerData[playerId] = { score: 0, questionsLeft: TriviaGame.numberOfInitialQuestions }
-        });
-    }
-
-    subscribePlayerToEvents(playerSocket: Socket) {
-        playerSocket.on('submitAnswer', (answerId: number, callback: (isTrue: boolean, nextQuestion: { question: string, options: string[] }, playerData: TriviaPlayerData) => void) => {
-            const isCorrectAnswer = answerId == 1;
-            this.updatePlayerState(playerSocket.id, isCorrectAnswer)
-            if (this.gameData.playerData[playerSocket.id].questionsLeft > 0) {
-                const selectedQuestion = this.getRandomQuestion();
-                callback(isCorrectAnswer, selectedQuestion, this.gameData.playerData[playerSocket.id]);
-            } else {
-                playerSocket.emit('endGame', this.gameData.playerData[playerSocket.id])
-            }
-
-        });
-        playerSocket.on('getQuestion', (callback: (
-            question: string,
-            choices: string[],
-            playerData: TriviaPlayerData
-        ) => void) => {
-            const selectedQuestion = this.getRandomQuestion();
-
-            // Send the question and options via the callback
-            callback(selectedQuestion.question, selectedQuestion.options, this.gameData.playerData[playerSocket.id]);
-        });
-
-
-    }
-
-    private getRandomQuestion() {
-        const randomIndex = Math.floor(Math.random() * questions.length);
-        const selectedQuestion = questions[randomIndex];
-        return selectedQuestion;
-    }
-
-    private updatePlayerState(playerId: string, isCorrectAnswer: boolean) {
-        var playerData = this.gameData.playerData[playerId];
-        playerData.questionsLeft--;
-        if (isCorrectAnswer)
-            playerData.score++;
-    }
-
-}
-
-export enum GameState { waiting, active, ended }
 export const getRandomQuestion: () => [Question, number] = () => {
     const randomIndex = Math.floor(Math.random() * questions.length);
     const selectedQuestion = questions[randomIndex];

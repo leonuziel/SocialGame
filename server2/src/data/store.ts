@@ -1,6 +1,9 @@
 // src/data/store.ts
 import { Room, Player, Game, GameState } from './models';
 import { MAX_PLAYERS_DEFAULT, MIN_PLAYERS_DEFAULT } from '../config'; // Import defaults from config
+import { ToohakGame } from '../Games/Toohak';
+import { GameType } from '../Games/GameUtils'; // Ensure this is imported
+import { Server as SocketIOServer } from 'socket.io'; // Needed for ToohakGame constructor
 
 // --- In-memory Store ---
 // The main data structure holding all active rooms, keyed by roomId.
@@ -17,12 +20,15 @@ const MIN_PLAYERS_TO_BE_READY = MIN_PLAYERS_DEFAULT;
  * @param maxPlayers - Maximum players for this game instance. Defaults to MAX_PLAYERS_DEFAULT from config.
  * @returns A new Game object.
  */
-export const createNewGame = (maxPlayers: number = MAX_PLAYERS_DEFAULT): Game => ({
-    state: "waiting to start", // Initial state
-    maxPlayers: Math.max(MIN_PLAYERS_TO_BE_READY, maxPlayers), // Ensure maxPlayers is at least minPlayers
+export const createNewGame = (gameType: GameType, maxPlayers: number = MAX_PLAYERS_DEFAULT): Game => ({
+    gameType: gameType, // Set the game type
+    state: "waiting to start",
+    maxPlayers: Math.max(MIN_PLAYERS_TO_BE_READY, maxPlayers),
     minPlayers: MIN_PLAYERS_TO_BE_READY,
     currentRound: 0,
-    // Initialize other game-specific properties here if needed
+    // Initialize other generic fields from models.ts Game interface
+    playerScores: {},
+    playerAnswerStatuses: {},
 });
 
 /**
@@ -214,3 +220,44 @@ export const checkAndSetReadyState = (room: Room): GameState | null => {
 // Add more specific data manipulation functions as needed for your game logic, e.g.:
 // export const incrementPlayerScore = (roomId, playerId, points) => { ... }
 // export const setNextTurn = (roomId) => { ... }
+
+/**
+ * Creates a new ToohakGame instance and assigns it to the specified room.
+ * Updates the generic game state in the room to reflect the new game.
+ * @param roomId The ID of the room.
+ * @param players The array of player IDs in the room.
+ * @param adminId The ID of the admin player.
+ * @param io The Socket.IO server instance.
+ * @returns The updated Room object with the game instance, or undefined if the room doesn't exist.
+ */
+export const createAndAssignToohakGame = (
+    roomId: string,
+    players: Player[], // Use Player[] from models
+    adminId: string,
+    io: SocketIOServer
+): Room | undefined => {
+    const room = getRoom(roomId);
+    if (!room) {
+        console.warn(`[Store] Room ${roomId} not found for assigning Toohak game.`);
+        return undefined;
+    }
+
+    // Assuming admins is just the adminId for ToohakGame constructor compatibility for now
+    // The ToohakGame constructor expects player IDs (string[]) and admin IDs (string[])
+    const playerIds = players.map(p => p.id);
+    const adminIds = [adminId]; // ToohakGame constructor expects an array of admin IDs
+
+    const toohakGameInstance = new ToohakGame(roomId, playerIds, adminIds, io);
+    room.gameInstance = toohakGameInstance;
+
+    // Update the generic room.game state
+    room.game.gameType = GameType.Toohak; // Set game type
+    room.game.state = "in game"; // Changed to "in game"
+    // Copy relevant initial data from toohakGameInstance.gameData to room.game if needed
+    // For example, room.game.currentQuestionIndex = toohakGameInstance.gameData.generalData.questionIndex;
+    // However, ToohakGame's resetGameState is called in its constructor, which sets initial question.
+    // We might need a method in ToohakGame to get initial general data to populate room.game.
+
+    console.log(`[Store] ToohakGame instance created and assigned to room ${roomId}.`);
+    return room;
+};

@@ -4,6 +4,9 @@ import * as roomHandlers from './roomHandlers'; // Import handlers for room mana
 import * as gameHandlers from './gameHandlers'; // Import handlers for game actions
 
 // --- Define interfaces for expected data payloads for type safety ---
+// Note: BasicCallback is implicitly defined by its usage in gameHandlers and roomHandlers,
+// but could be explicitly defined here or in a shared types file if preferred.
+// type BasicCallback = (response: { success: boolean; message: string }) => void;
 // These should match the data structures expected by your handler functions.
 
 interface JoinRoomData {
@@ -15,6 +18,13 @@ interface JoinRoomData {
 interface MessageData {
     roomId: string;
     message: string;
+}
+
+// Added for Toohak game actions
+interface SubmitAnswerData {
+    roomId: string;
+    questionId: number;
+    answerId: number;
 }
 
 // Add interfaces for other game actions if needed, e.g.:
@@ -88,6 +98,22 @@ export const registerSocketHandlers = (io: SocketIOServer) => {
         });
 
         // --- Register listeners for your specific game actions here ---
+        socket.on('submitAnswer', (data: SubmitAnswerData, callback) => {
+            // Add validation for data structure as needed
+            if (!data || typeof data.roomId !== 'string' || typeof data.questionId !== 'number' || typeof data.answerId !== 'number') {
+                if (callback) callback({ success: false, message: 'Invalid data for submitting answer.' });
+                return;
+            }
+            gameHandlers.handleSubmitAnswer(io, socket, data, callback);
+        });
+
+        socket.on('startToohakQuestions', (roomId: string, callback) => { // Admin action
+            if (typeof roomId !== 'string') {
+                if (callback) callback({ success: false, message: 'Invalid room ID.' });
+                return;
+            }
+            gameHandlers.handleStartToohakQuestionCycle(io, socket, roomId, callback);
+        });
         /*
         socket.on('playerAction', (data: PlayerActionData, callback) => {
             // Add validation for 'data' structure as needed

@@ -2,6 +2,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Room, Player, Game, GameState } from '../data/models'; // Import interfaces/types
 import * as store from '../data/store'; // Import store functions to interact with state
+import { GameType } from '../Games/GameUtils'; // Added import
 
 // --- Callback Type Definitions ---
 // Define types for callback functions passed from the client for better type safety
@@ -101,26 +102,24 @@ export const handleStartGame = (
     // --- If all checks pass, proceed ---
     console.log(`Attempting to start game in room ${roomId} by admin ${socket.id}`);
 
-    // 4. Update State: Change game state to 'in game' and potentially initialize round/turn
-    const updatedRoom = store.updateGameState(roomId, {
-        state: 'in game',
-        currentRound: 1 // Example: Start at round 1
-        // Initialize other game start properties here, e.g., currentTurnPlayerId
-    });
+    // Create and assign the Toohak game instance
+    const updatedRoom = store.createAndAssignToohakGame(roomId, room.players, socket.id, io);
 
-    if (updatedRoom) {
+    if (updatedRoom && updatedRoom.gameInstance) {
         console.log(`Game started successfully in room ${roomId}. State: ${updatedRoom.game.state}`);
-        // 5. Notify Clients: Inform everyone in the room that the game state has changed
-        io.to(roomId).emit('gameStateChanged', { roomId, newState: 'in game' });
-        // You might also emit a more specific 'gameStarted' event with initial game data if needed
-        // io.to(roomId).emit('gameStarted', { roomId, game: updatedRoom.game, startingPlayerId: ... });
+        // Notify Clients: Inform everyone in the room that the game state has changed (and what type of game it is)
+        io.to(roomId).emit('gameStateChanged', {
+            roomId,
+            newState: updatedRoom.game.state,
+            gameType: updatedRoom.game.gameType
+        });
+        // Optionally, you could also emit the initial game data from updatedRoom.gameInstance.gameData if needed by clients immediately.
+        // For Toohak, the first question is usually sent by a separate action after this.
 
-        // 6. Acknowledge Sender: Use the callback to confirm success
         if (callback) callback({ success: true, message: `Game started in room "${roomId}".`, game: updatedRoom.game });
     } else {
-         // This should ideally not happen if the room existed initially, but handle defensively
-         console.error(`[Critical] Failed to update game state to 'in game' for existing room ${roomId}`);
-         if (callback) callback({ success: false, message: `Failed to update game state on server.` });
+        console.error(`[Critical] Failed to create or assign Toohak game for room ${roomId}`);
+        if (callback) callback({ success: false, message: `Failed to initialize the game on the server.` });
     }
 };
 
@@ -160,6 +159,75 @@ export const handleConcludeGame = (
 // -----------------------------------------------------------------------------
 // Add more handlers for your specific game actions below, for example:
 // -----------------------------------------------------------------------------
+
+interface SubmitAnswerData {
+    roomId: string;
+    questionId: number; // This is actually the questionIndex in ToohakGame
+    answerId: number;   // Index of the chosen answer
+}
+
+export const handleSubmitAnswer = (
+    io: SocketIOServer,
+    socket: Socket,
+    data: SubmitAnswerData,
+    callback?: BasicCallback
+) => {
+    const { roomId, questionId, answerId } = data;
+    const room = store.getRoom(roomId);
+
+    if (!room || !room.gameInstance || room.game.gameType !== GameType.Toohak) {
+        if (callback) callback({ success: false, message: "Game not found or not a Toohak game." });
+        return;
+    }
+    if (room.game.state !== 'in game') {
+        if (callback) callback({ success: false, message: "Game is not currently in progress." });
+        return;
+    }
+
+    const gameInstance = room.gameInstance; // Type should be ToohakGame due to models.ts change
+
+    // Check if it's the correct question, then update score
+    // ToohakGame's updatePlayerScore needs to know the question's index to validate.
+    // The current ToohakGame.updatePlayerScore takes answerId and playerId.
+    // It internally checks against this.gameData.generalData.questionIndex.
+    // So, the `questionId` from client should match `gameInstance.gameData.generalData.questionIndex`.
+    if (gameInstance.gameData.generalData.questionIndex === questionId) {
+       gameInstance.updatePlayerScore(answerId, socket.id);
+       if (callback) callback({ success: true, message: "Answer submitted." });
+       // Game instance might emit score updates or other events internally
+    } else {
+       if (callback) callback({ success: false, message: "Answer submitted for incorrect question."});
+    }
+};
+
+export const handleStartToohakQuestionCycle = (
+    io: SocketIOServer,
+    socket: Socket,
+    roomId: string,
+    callback?: BasicCallback
+) => {
+    const room = store.getRoom(roomId);
+    if (!room || !room.gameInstance || room.game.gameType !== GameType.Toohak) {
+        if (callback) callback({ success: false, message: "Game not found or not a Toohak game." });
+        return;
+    }
+    if (room.adminId !== socket.id) {
+        if (callback) callback({ success: false, message: "Only admin can start the question cycle." });
+        return;
+    }
+    // Game state should be 'in game', but ToohakGame might have its own sub-state.
+    // For now, we assume if room.game.state is 'in game', this action is valid.
+    if (room.game.state !== 'in game') {
+        if (callback) callback({ success: false, message: "Game is not in a state to start questions." });
+        return;
+    }
+
+    const gameInstance = room.gameInstance;
+    gameInstance.QuestionSendState(); // This was the method in Toohak.ts
+
+    if (callback) callback({ success: true, message: "Question cycle started." });
+    io.to(roomId).emit('gameMessage', { message: 'The game master has started the questions!' }); // Notify players
+};
 
 /*
 export const handlePlayerAction = (

@@ -1,0 +1,30 @@
+{
+  "name": "social-game-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Main package for managing the client and server.",
+  "main": "server2/dist/server.js",
+  "scripts": {
+    "dev:client": "PORT=3001 npm start --prefix client",
+    "dev:server": "npm run dev --prefix server2",
+    "dev": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
+    "build:client": "npm run build --prefix client",
+    "build:server": "npm run build --prefix server2",
+    "build": "npm run build:client && npm run build:server",
+    "start": "node server2/dist/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "game",
+    "typescript",
+    "react",
+    "node",
+    "socket.io"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

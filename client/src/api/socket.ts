@@ -3,8 +3,8 @@ import { io } from 'socket.io-client';
 
 const ServerSocket = io(
     process.env.NODE_ENV === 'production'
-        ? 'https://socialgame-441209.lm.r.appspot.com' // Production URL
-        : 'http://localhost:5000' // Use the current hostname (e.g., localhost for dev)
+        ? 'https://socialgame-441209.lm.r.appspot.com' // Production URL - Will be updated later
+        : 'http://localhost:3000' // Connect to server2's default port for dev
 );
 type Args = {};
 

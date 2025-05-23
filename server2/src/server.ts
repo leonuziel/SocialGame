@@ -28,15 +28,11 @@ registerSocketHandlers(io);
 
 // -- Express Middleware & Routes --
 
-// Serve static files (like index.html, css, client-side js) from the 'public' directory
+// Serve static files (like index.html, css, client-side js) from the 'client-build' directory
 // The path is resolved relative to the location of the compiled server.js file in 'dist'
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'client-build')));
 
-// Serve the Socket.IO client library file automatically served by Socket.IO v3+
-// This explicit route is often not strictly necessary with modern Socket.IO
-// but can be kept for clarity or if specific path is needed.
-// It ensures that '/socket.io/socket.io.js' resolves correctly.
-app.use('/socket.io', express.static(path.join(__dirname, '..', 'node_modules', 'socket.io-client', 'dist')));
+// Removed the explicit static serving of socket.io-client
 
 
 // -- Basic HTTP Routes --
@@ -44,7 +40,7 @@ app.use('/socket.io', express.static(path.join(__dirname, '..', 'node_modules', 
 // Route for the root path ('/') to serve the main HTML client file
 app.get('/', (req: Request, res: Response) => {
     // Ensure the path resolves correctly relative to the 'dist' folder after build
-    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'client-build', 'index.html'));
 });
 
 // Optional: A simple health check endpoint for monitoring or load balancers

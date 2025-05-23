@@ -1,29 +1,16 @@
-runtime: nodejs20
+runtime: custom
+env: flex
 
-handlers:
-  # Serve static files (JS, CSS, images)
-  - url: /static
-    static_dir: frontend/build/static
+# Optional: Add service name, scaling, and resource settings as needed.
+# Example:
+# service: social-game-backend
+# manual_scaling:
+#   instances: 1
+# resources:
+#   cpu: 1
+#   memory_gb: 0.5
+#   disk_size_gb: 10
 
-  # Serve the rest of the static files (e.g., favicon, manifest, logo)
-  - url: /favicon.ico
-    static_files: frontend/build/favicon.ico
-    upload: frontend/build/favicon.ico
-
-  - url: /manifest.json
-    static_files: client/build/manifest.json
-    upload: client/build/manifest.json
-
-  - url: /logo192.png
-    static_files: client/build/logo192.png
-    upload: client/build/logo192.png
-
-  # Serve index.html for root and 404s (SPA fallback)
-  - url: /
-    static_files: client/build/index.html
-    upload: client/build/index.html
-
-  # Fallback to index.html for all other routes (SPA routing)
-  - url: /.*  
-    static_files: client/build/index.html
-    upload: client/build/index.html
+# Ensure App Engine uses the PORT environment variable your app listens on.
+# The Dockerfile EXPOSEs 8080, and server2/src/config.ts uses process.env.PORT || 3000.
+# App Engine will set PORT to 8080 by default for custom runtimes.

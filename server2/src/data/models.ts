@@ -1,4 +1,6 @@
 // src/data/models.ts
+import { GameType, Question } from '../Games/GameUtils';
+import { ToohakGame } from '../Games/Toohak';
 
 /**
  * Represents a player connected via a socket.
@@ -27,15 +29,17 @@ export type GameState =
  * Customize this heavily based on your actual game's rules and data.
  */
 export interface Game {
+    gameType?: GameType; // Added
     state: GameState;       // Current phase of the game
     maxPlayers: number;     // Maximum number of players allowed in the room
     minPlayers: number;     // Minimum number of players required to reach the "ready" state
     currentRound: number;   // Example game state property
-    // Add more game-specific state properties here, e.g.:
-    // currentTurnPlayerId?: string;
-    // gameBoard?: any[][]; // Replace 'any' with your board structure type
-    // scores?: Record<string, number>; // Map player IDs to scores
-    // gameSettings?: object; // Room-specific settings
+    currentQuestionIndex?: number; // From ToohakGeneralData.questionIndex
+    currentQuestionData?: Question; // From ToohakGeneralData.questionData (Question type from GameUtils)
+    playerScores?: Record<string, number>; // To store scores, maps playerId to score
+    playerAnswerStatuses?: Record<string, { answered: boolean; answerTime: number }>; // Example
+    // OR a more generic approach:
+    // gameSpecificDetails?: any;
 }
 
 /**
@@ -46,6 +50,7 @@ export interface Room {
     players: Player[];      // Array of Player objects currently in the room
     game: Game;             // The Game object holding the state for this room's game
     adminId?: string;       // The socket.id of the player who created the room and has admin privileges (like starting the game)
+    gameInstance?: ToohakGame; // Added
     // You could add other room metadata here, e.g.:
     // createdAt?: Date;
     // isPrivate?: boolean;
