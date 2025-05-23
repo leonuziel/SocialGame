@@ -12,7 +12,8 @@
     "build:server": "npm run build --prefix server2",
     "build": "npm run build:client && npm run build:server",
     "start": "node server2/dist/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "e2e": "cypress run"
   },
   "keywords": [
     "game",
