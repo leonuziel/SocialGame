@@ -1,34 +1,50 @@
-import { Server as SocketIOServer, Socket } from 'socket.io';
+// server2/src/Games/GameUtils.ts
+import { Server as SocketIOServer, Socket } from 'socket.io'; // Socket may not be needed here anymore
+// GameState from data/models is used by IGame implementers, not directly by this base Game typically
 
 export enum GameType {
     None = 'None',
-    Trivia = 'Trivia',
+    // Trivia = 'Trivia', // TriviaGame was removed
     Toohak = 'Toohak'
 }
 
-
+// Base Game class to be extended by specific game logic.
+// It now primarily provides common properties and the io instance.
 export abstract class Game<GeneralData, PlayerData> {
     protected roomId: string;
     protected gameType: GameType;
-    protected gameData: { generalData: GeneralData, playerData: { [playerId: string]: PlayerData } };
+    // gameData is the specific internal state of the game instance (e.g., ToohakGameData)
+    public gameData: { generalData: GeneralData, playerData: { [playerId: string]: PlayerData } };
     protected io: SocketIOServer;
 
-    protected constructor(roomId: string, gameType: GameType, initialPlayerData: { generalData: GeneralData, playerData: { [playerId: string]: PlayerData } }, io: SocketIOServer) {
+    protected constructor(
+        roomId: string,
+        gameType: GameType,
+        initialGameData: { generalData: GeneralData, playerData: { [playerId: string]: PlayerData } },
+        io: SocketIOServer
+    ) {
         this.io = io;
         this.roomId = roomId;
         this.gameType = gameType;
-        this.gameData = initialPlayerData;
+        this.gameData = initialGameData;
     }
 
+    // Common method that might be useful for all games
     public getGameType(): GameType {
         return this.gameType;
     }
 
-    // subscribePlayerToEvents removed
+    // Specific game logic will be defined in classes implementing IGame
 }
 
+// Shared Question type
+export type Question = {
+    question: string;
+    options: string[];
+    correctIndex: number;
+};
 
-export type Question = { question: string, options: string[], correctIndex: number }
+// Hardcoded questions list (as it was in the original file)
 const questions: Question[] = [
     { question: "What is the capital of France?", options: ["Berlin", "Madrid", "Paris", "Rome"], correctIndex: 2 },
     { question: "Which planet is known as the Red Planet?", options: ["Earth", "Mars", "Jupiter", "Saturn"], correctIndex: 1 },
@@ -81,10 +97,18 @@ const questions: Question[] = [
     { question: "What is the capital city of Australia?", options: ["Sydney", "Melbourne", "Perth", "Canberra"], correctIndex: 3 }
 ];
 
-// TriviaPlayerData, TriviaGeneralData, TriviaGameData, and TriviaGame class removed.
-
-export const getRandomQuestion: () => [Question, number] = () => {
-    const randomIndex = Math.floor(Math.random() * questions.length);
+/**
+ * Gets a random question from the list.
+ * @param excludeIndex Optional index to exclude to avoid immediate repetition.
+ * @returns A tuple containing the Question object and its index in the questions array.
+ */
+export const getRandomQuestion: (excludeIndex?: number) => [Question, number] = (excludeIndex?: number) => {
+    let randomIndex = Math.floor(Math.random() * questions.length);
+    if (excludeIndex !== undefined && questions.length > 1) {
+        while (randomIndex === excludeIndex) {
+            randomIndex = Math.floor(Math.random() * questions.length);
+        }
+    }
     const selectedQuestion = questions[randomIndex];
     return [selectedQuestion, randomIndex];
-}
+};

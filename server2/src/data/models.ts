@@ -1,6 +1,7 @@
 // src/data/models.ts
 import { GameType, Question } from '../Games/GameUtils';
-import { ToohakGame } from '../Games/Toohak';
+// import { ToohakGame } from '../Games/Toohak'; // Removed
+import { IGame } from '../Games/IGame'; // Added
 
 /**
  * Represents a player connected via a socket.
@@ -50,7 +51,7 @@ export interface Room {
     players: Player[];      // Array of Player objects currently in the room
     game: Game;             // The Game object holding the state for this room's game
     adminId?: string;       // The socket.id of the player who created the room and has admin privileges (like starting the game)
-    gameInstance?: ToohakGame; // Added
+    gameInstance?: IGame; // Changed to IGame
     // You could add other room metadata here, e.g.:
     // createdAt?: Date;
     // isPrivate?: boolean;

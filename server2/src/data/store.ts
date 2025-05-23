@@ -4,6 +4,7 @@ import { MAX_PLAYERS_DEFAULT, MIN_PLAYERS_DEFAULT } from '../config'; // Import 
 import { ToohakGame } from '../Games/Toohak';
 import { GameType } from '../Games/GameUtils'; // Ensure this is imported
 import { Server as SocketIOServer } from 'socket.io'; // Needed for ToohakGame constructor
+import { IGame, GameInitializationOptions } from '../Games/IGame'; // Added
 
 // --- In-memory Store ---
 // The main data structure holding all active rooms, keyed by roomId.
@@ -222,42 +223,78 @@ export const checkAndSetReadyState = (room: Room): GameState | null => {
 // export const setNextTurn = (roomId) => { ... }
 
 /**
- * Creates a new ToohakGame instance and assigns it to the specified room.
- * Updates the generic game state in the room to reflect the new game.
+ * Creates a new game instance based on gameType, initializes it, and assigns it to the room.
+ * Updates the generic game state in the room.
  * @param roomId The ID of the room.
- * @param players The array of player IDs in the room.
+ * @param gameType The type of game to create.
+ * @param players Array of Player objects in the room.
  * @param adminId The ID of the admin player.
  * @param io The Socket.IO server instance.
- * @returns The updated Room object with the game instance, or undefined if the room doesn't exist.
+ * @param gameOptions Game-specific initialization options.
+ * @returns The updated Room object with the game instance, or undefined if the room or game type is invalid.
  */
-export const createAndAssignToohakGame = (
+export const createAndAssignGameInstance = (
     roomId: string,
-    players: Player[], // Use Player[] from models
-    adminId: string,
-    io: SocketIOServer
+    gameType: GameType,
+    players: Player[],
+    adminId: string, // adminId is sufficient, ToohakGame constructor was expecting string[] for admins
+    io: SocketIOServer,
+    gameOptions: GameInitializationOptions = {} // Default to empty object
 ): Room | undefined => {
     const room = getRoom(roomId);
     if (!room) {
-        console.warn(`[Store] Room ${roomId} not found for assigning Toohak game.`);
+        console.warn(`[Store] Room ${roomId} not found for assigning game instance.`);
         return undefined;
     }
 
-    // Assuming admins is just the adminId for ToohakGame constructor compatibility for now
-    // The ToohakGame constructor expects player IDs (string[]) and admin IDs (string[])
-    const playerIds = players.map(p => p.id);
-    const adminIds = [adminId]; // ToohakGame constructor expects an array of admin IDs
+    let gameInstance: IGame | undefined;
+    const playerIds = players.map(p => p.id); // ToohakGame constructor uses player IDs
 
-    const toohakGameInstance = new ToohakGame(roomId, playerIds, adminIds, io);
-    room.gameInstance = toohakGameInstance;
+    // Game Factory Logic
+    switch (gameType) {
+        case GameType.Toohak:
+            // The ToohakGame constructor expects (roomId, playerIds, adminIds, io)
+            // The IGame.initialize expects (players, options, io)
+            // We need to align this. For now, let's assume ToohakGame will be refactored
+            // to primarily use an `initialize` method as per IGame.
+            // So, we first instantiate, then initialize.
+            const toohak = new ToohakGame(roomId, playerIds, [adminId], io); // This matches current Toohak constructor
+            // gameOptions for Toohak might include things like numberOfQuestions if we make it dynamic.
+            // For now, ToohakGame's constructor and resetGameState handle its specific init.
+            // We'll call a conceptual 'initialize' which might just be its constructor effects for now.
+            // This part will need further alignment when ToohakGame implements IGame.
+            // For now, we assume its constructor has set it up.
+            gameInstance = toohak as IGame; // Cast to IGame
+            // Conceptual: gameInstance.initialize(players, gameOptions, io); // This would be ideal
+            break;
+        // case GameType.AnotherGame:
+        //     gameInstance = new AnotherGame(roomId, io);
+        //     gameInstance.initialize(players, gameOptions, io);
+        //     break;
+        default:
+            console.warn(`[Store] Unknown game type: ${gameType} for room ${roomId}`);
+            return undefined;
+    }
 
-    // Update the generic room.game state
-    room.game.gameType = GameType.Toohak; // Set game type
-    room.game.state = "in game"; // Changed to "in game"
-    // Copy relevant initial data from toohakGameInstance.gameData to room.game if needed
-    // For example, room.game.currentQuestionIndex = toohakGameInstance.gameData.generalData.questionIndex;
-    // However, ToohakGame's resetGameState is called in its constructor, which sets initial question.
-    // We might need a method in ToohakGame to get initial general data to populate room.game.
+    if (gameInstance) {
+        room.gameInstance = gameInstance;
+        room.game.gameType = gameInstance.gameType; // Game instance should expose its type
+        room.game.state = gameInstance.getCurrentState() as GameState; // Game instance should expose its state
 
-    console.log(`[Store] ToohakGame instance created and assigned to room ${roomId}.`);
-    return room;
+        // Populate generic game fields from the specific instance if applicable
+        // This depends on what getInternalGameData() and getGameStateForClient() will provide
+        // and what ToohakGame.getCurrentState() returns.
+        // For now, assume ToohakGame's constructor/resetGameState sets its state to "in game".
+        // And createAndAssignGameInstance will set the generic room.game.state to "in game".
+        // The ToohakGame.getCurrentState() should return a GameState compatible string.
+        if (gameInstance.gameType === GameType.Toohak) {
+             const toohakInternalData = gameInstance.getInternalGameData(); // if available and needed
+             room.game.state = "in game"; // Explicitly set for Toohak start
+             // room.game.currentQuestionIndex = toohakInternalData.generalData.questionIndex; (Example)
+        }
+
+        console.log(`[Store] ${gameType} instance created and assigned to room ${roomId}. Generic state: ${room.game.state}`);
+        return room;
+    }
+    return undefined;
 };

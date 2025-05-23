@@ -3,6 +3,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Room, Player, Game, GameState } from '../data/models'; // Import interfaces/types
 import * as store from '../data/store'; // Import store functions to interact with state
 import { GameType } from '../Games/GameUtils'; // Added import
+import { IGame, PlayerActionPayload, GameInitializationOptions } from '../Games/IGame'; // Added import
 
 // --- Callback Type Definitions ---
 // Define types for callback functions passed from the client for better type safety
@@ -102,11 +103,22 @@ export const handleStartGame = (
     // --- If all checks pass, proceed ---
     console.log(`Attempting to start game in room ${roomId} by admin ${socket.id}`);
 
-    // Create and assign the Toohak game instance
-    const updatedRoom = store.createAndAssignToohakGame(roomId, room.players, socket.id, io);
+    // Create and assign the game instance
+    const gameOptions: GameInitializationOptions = { maxPlayers: room.game.maxPlayers };
+    // For now, assume Toohak is the only game type being started.
+    // Later, gameTypeToStart might come from client or room settings.
+    const gameTypeToStart = GameType.Toohak;
+    const updatedRoom = store.createAndAssignGameInstance(
+        roomId,
+        gameTypeToStart,
+        room.players,
+        socket.id, // adminId
+        io,
+        gameOptions
+    );
 
     if (updatedRoom && updatedRoom.gameInstance) {
-        console.log(`Game started successfully in room ${roomId}. State: ${updatedRoom.game.state}`);
+        console.log(`Game started successfully in room ${roomId}. State: ${updatedRoom.game.state}, Type: ${updatedRoom.game.gameType}`);
         // Notify Clients: Inform everyone in the room that the game state has changed (and what type of game it is)
         io.to(roomId).emit('gameStateChanged', {
             roomId,
@@ -138,6 +150,12 @@ export const handleConcludeGame = (
 
      // Only conclude if the game is actually in progress
      if (room && room.game.state === 'in game') {
+        // Optional: Call concludeGame on the game instance itself for specific cleanup
+        if (room.gameInstance) {
+            console.log(`[Game] Calling concludeGame() on instance for room ${roomId}`);
+            room.gameInstance.concludeGame("Concluded by server action");
+        }
+
          console.log(`Concluding game in room ${roomId}.`);
          // Update state to 'concluded'
          const updatedRoom = store.updateGameState(roomId, { state: 'concluded' });
@@ -157,77 +175,42 @@ export const handleConcludeGame = (
 };
 
 // -----------------------------------------------------------------------------
-// Add more handlers for your specific game actions below, for example:
+// Generic Game Action Handler
 // -----------------------------------------------------------------------------
 
-interface SubmitAnswerData {
-    roomId: string;
-    questionId: number; // This is actually the questionIndex in ToohakGame
-    answerId: number;   // Index of the chosen answer
-}
-
-export const handleSubmitAnswer = (
+export const handleGameAction = async ( // Mark async if gameInstance.handlePlayerAction is async
     io: SocketIOServer,
     socket: Socket,
-    data: SubmitAnswerData,
+    data: PlayerActionPayload & { roomId: string }, // Combined type
     callback?: BasicCallback
 ) => {
-    const { roomId, questionId, answerId } = data;
+    const { roomId, actionType, ...actionPayload } = data; // Separate roomId and actionType
+
     const room = store.getRoom(roomId);
 
-    if (!room || !room.gameInstance || room.game.gameType !== GameType.Toohak) {
-        if (callback) callback({ success: false, message: "Game not found or not a Toohak game." });
+    if (!room || !room.gameInstance) {
+        if (callback) callback({ success: false, message: "Game not found or not initialized." });
         return;
     }
+
     if (room.game.state !== 'in game') {
-        if (callback) callback({ success: false, message: "Game is not currently in progress." });
+        if (callback) callback({ success: false, message: `Game is not currently in progress. State: ${room.game.state}` });
         return;
     }
 
-    const gameInstance = room.gameInstance; // Type should be ToohakGame due to models.ts change
+    // Reconstruct the action payload without roomId for the game instance
+    const gameSpecificAction: PlayerActionPayload = { actionType, ...actionPayload };
 
-    // Check if it's the correct question, then update score
-    // ToohakGame's updatePlayerScore needs to know the question's index to validate.
-    // The current ToohakGame.updatePlayerScore takes answerId and playerId.
-    // It internally checks against this.gameData.generalData.questionIndex.
-    // So, the `questionId` from client should match `gameInstance.gameData.generalData.questionIndex`.
-    if (gameInstance.gameData.generalData.questionIndex === questionId) {
-       gameInstance.updatePlayerScore(answerId, socket.id);
-       if (callback) callback({ success: true, message: "Answer submitted." });
-       // Game instance might emit score updates or other events internally
-    } else {
-       if (callback) callback({ success: false, message: "Answer submitted for incorrect question."});
+    try {
+        const result = await room.gameInstance.handlePlayerAction(socket.id, gameSpecificAction);
+        if (callback) callback(result); // Pass game's result to client's callback
+    } catch (error: any) {
+        console.error(`[GameAction] Error in game ${room.gameInstance.gameType} for room ${roomId}, action ${actionType}:`, error);
+        if (callback) callback({ success: false, message: error.message || "An error occurred in the game." });
     }
 };
 
-export const handleStartToohakQuestionCycle = (
-    io: SocketIOServer,
-    socket: Socket,
-    roomId: string,
-    callback?: BasicCallback
-) => {
-    const room = store.getRoom(roomId);
-    if (!room || !room.gameInstance || room.game.gameType !== GameType.Toohak) {
-        if (callback) callback({ success: false, message: "Game not found or not a Toohak game." });
-        return;
-    }
-    if (room.adminId !== socket.id) {
-        if (callback) callback({ success: false, message: "Only admin can start the question cycle." });
-        return;
-    }
-    // Game state should be 'in game', but ToohakGame might have its own sub-state.
-    // For now, we assume if room.game.state is 'in game', this action is valid.
-    if (room.game.state !== 'in game') {
-        if (callback) callback({ success: false, message: "Game is not in a state to start questions." });
-        return;
-    }
-
-    const gameInstance = room.gameInstance;
-    gameInstance.QuestionSendState(); // This was the method in Toohak.ts
-
-    if (callback) callback({ success: true, message: "Question cycle started." });
-    io.to(roomId).emit('gameMessage', { message: 'The game master has started the questions!' }); // Notify players
-};
+// Removed handleSubmitAnswer and handleStartToohakQuestionCycle
 
 /*
 export const handlePlayerAction = (

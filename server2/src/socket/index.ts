@@ -2,6 +2,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import * as roomHandlers from './roomHandlers'; // Import handlers for room management
 import * as gameHandlers from './gameHandlers'; // Import handlers for game actions
+import { PlayerActionPayload } from '../Games/IGame'; // Added import
 
 // --- Define interfaces for expected data payloads for type safety ---
 // Note: BasicCallback is implicitly defined by its usage in gameHandlers and roomHandlers,
@@ -20,12 +21,7 @@ interface MessageData {
     message: string;
 }
 
-// Added for Toohak game actions
-interface SubmitAnswerData {
-    roomId: string;
-    questionId: number;
-    answerId: number;
-}
+// Removed SubmitAnswerData interface
 
 // Add interfaces for other game actions if needed, e.g.:
 // interface PlayerActionData {
@@ -98,28 +94,20 @@ export const registerSocketHandlers = (io: SocketIOServer) => {
         });
 
         // --- Register listeners for your specific game actions here ---
-        socket.on('submitAnswer', (data: SubmitAnswerData, callback) => {
-            // Add validation for data structure as needed
-            if (!data || typeof data.roomId !== 'string' || typeof data.questionId !== 'number' || typeof data.answerId !== 'number') {
-                if (callback) callback({ success: false, message: 'Invalid data for submitting answer.' });
-                return;
-            }
-            gameHandlers.handleSubmitAnswer(io, socket, data, callback);
-        });
+        // Define the expected data structure for the 'gameAction' event from the client
+        interface GameActionClientData extends PlayerActionPayload {
+            roomId: string;
+        }
 
-        socket.on('startToohakQuestions', (roomId: string, callback) => { // Admin action
-            if (typeof roomId !== 'string') {
-                if (callback) callback({ success: false, message: 'Invalid room ID.' });
+        socket.on('gameAction', (data: GameActionClientData, callback) => {
+            // Basic validation for the incoming data
+            if (!data || typeof data.roomId !== 'string' || typeof data.actionType !== 'string') {
+                if (callback) callback({ success: false, message: 'Invalid game action data.' });
                 return;
             }
-            gameHandlers.handleStartToohakQuestionCycle(io, socket, roomId, callback);
+            gameHandlers.handleGameAction(io, socket, data, callback);
         });
-        /*
-        socket.on('playerAction', (data: PlayerActionData, callback) => {
-            // Add validation for 'data' structure as needed
-            gameHandlers.handlePlayerAction(io, socket, data, callback);
-        });
-        */
+        // Removed old listeners for submitAnswer and startToohakQuestions
 
 
         // --- Handle Socket Disconnection ---
